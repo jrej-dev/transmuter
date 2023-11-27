@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct InputInfo {
@@ -6,12 +6,4 @@ pub struct InputInfo {
     pub collection: String,
     pub method: String,
     pub token_standard: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct InputIndex {
-    pub mint: usize,
-    pub metadata: usize,
-    pub ata: usize,
-    pub creator_ata: usize,
 }

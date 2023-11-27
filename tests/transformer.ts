@@ -1,5 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program, BN } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import { Transformer, IDL } from "../target/types/transformer";
 import {
   PublicKey,
@@ -11,7 +11,6 @@ import {
 import { randomBytes } from "crypto";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID as associatedTokenProgram,
-  createMint,
   getOrCreateAssociatedTokenAccount,
   TOKEN_PROGRAM_ID as tokenProgram,
 } from "@solana/spl-token";
@@ -93,28 +92,6 @@ describe("transformer", () => {
   let outputCollection: any;
   let inputMints = [];
   let outputMints = [];
-
-  const collectionMetadata = {
-    name: "Titan Dogs",
-    symbol: "TDOG",
-    description: "This is the Titan Dogs NFT collection.",
-    image: "collection.png",
-    attributes: [],
-    properties: {
-      files: [
-        {
-          uri: "collection.png",
-          type: "image/png",
-        },
-      ],
-      category: "image",
-    },
-    seller_fee_basis_points: 500,
-  };
-
-  const NFTMetadata = [
-    "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-  ];
 
   it("Airdrop", async () => {
     await Promise.all(
@@ -214,14 +191,87 @@ describe("transformer", () => {
   });
 
   it("creates the transmuter", async () => {
+    const remainingAccounts = [];
+    const remainingAccountsNftIndexer = [];
+
+    const creatorNfts = await userMetaplex
+      .nfts()
+      .findAllByOwner({ owner: creator.publicKey });
+
+    const nftsWithCollection = creatorNfts.filter((nft) => nft.collection) as {
+      address: PublicKey;
+      mintAddress: PublicKey;
+      collection: { address: PublicKey };
+    }[];
+
+    const foundNft =
+      nftsWithCollection.length > 0 &&
+      nftsWithCollection[0].collection.address.toBase58() ===
+        inputCollection.nft.address.toBase58();
+
+    if (foundNft) {
+      let indexes: { [key: string]: number } = {
+        mint: 0,
+        metadata: 0,
+        ata: 0,
+        creator_ata: 0,
+      };
+
+      //get mint
+      indexes.mint = remainingAccounts.length;
+      remainingAccounts.push({
+        isSigner: false,
+        isWritable: true,
+        pubkey: nftsWithCollection[0].mintAddress,
+      });
+
+      //get metadata
+      const metadata = await getMetadata(nftsWithCollection[0].mintAddress);
+      indexes.metadata = remainingAccounts.length;
+      remainingAccounts.push({
+        isSigner: false,
+        isWritable: true,
+        pubkey: metadata,
+      });
+
+      //get ata
+      const ata = await getOrCreateAssociatedTokenAccount(
+        anchor.getProvider().connection,
+        user,
+        nftsWithCollection[0].mintAddress,
+        user.publicKey,
+        false
+      );
+
+      indexes.ata = remainingAccounts.length;
+      remainingAccounts.push({
+        isSigner: false,
+        isWritable: true,
+        pubkey: ata.address,
+      });
+      remainingAccountsNftIndexer.push(indexes);
+    }
+
+    const owner = await getProgramAuthority(
+      anchor.getProvider().connection,
+      programId
+    );
+    console.log("owner: ", owner.toBase58());
+
+    const wba = new PublicKey("3LSY4UTEFt7V7eGsiaAUDzn3iKAJFBPkYseXpdECFknF");
+    console.log("wba: ", wba.toBase58());
+
     const tx = await program.methods
-      .create(seed)
+      .create(seed, JSON.stringify([]))
       .accounts({
         creator: creator.publicKey,
         auth,
         transmuter,
         systemProgram: SystemProgram.programId,
+        owner,
+        wba,
       })
+      .remainingAccounts(remainingAccounts)
       .signers([creator])
       .rpc();
     console.log("Your transaction signature", tx);
@@ -229,10 +279,13 @@ describe("transformer", () => {
 
   // it("adds one collection", async () => {
   //   const tx = await program.methods
-  //     .addCollection(seed, JSON.stringify({
-  //       name: 'test',
-  //       pub
-  //     }))
+  //     .addCollection(
+  //       seed,
+  //       JSON.stringify({
+  //         name: "test",
+  //         pub,
+  //       })
+  //     )
   //     .accounts({
   //       creator: creator.publicKey,
   //       transmuter,
@@ -285,69 +338,26 @@ describe("transformer", () => {
     console.log("Your transaction signature", tx);
   });
 
-  // it("adds another output", async () => {
-  //   const tx = await program.methods
-  //     .addOutput(
-  //       seed,
-  //       JSON.stringify({
-  //         token_standard: "nft",
-  //         collection: outputCollection.nft.address.toBase58(),
-  //         method: "mint",
-  //         amount: 1,
-  //       })
-  //     )
-  //     .accounts({
-  //       creator: creator.publicKey,
-  //       transmuter,
-  //     })
-  //     .signers([creator])
-  //     .rpc();
-  //   await confirmTx(tx);
-  //   console.log("Your transaction signature", tx);
-  // });
-
   it("Transmute", async () => {
     const transmuterInfo = await program.account.transmuter.fetch(transmuter);
     const transmuterInputs = transmuterInfo.inputs;
     const transmuterOutputs = transmuterInfo.outputs;
 
     const remainingAccounts = [];
-    const remainingAccountsNftIndexer = [];
     const remainingAccountsInputIndexer = [];
     const remainingAccountsOutputIndexer = [];
-
-    const userNfts = await userMetaplex
-      .nfts()
-      .findAllByOwner({ owner: user.publicKey });
-
-    const nftsWithCollection = userNfts.filter((nft) => nft.collection);
-    const foundNft =
-      nftsWithCollection[0].collection.address.toBase58() ===
-      inputCollection.nft.address.toBase58();
-
-    if (foundNft) {
-      // let indexes: { [key: string]: number } = {};
-      // indexes.mint = remainingAccounts.length;
-      // remainingAccounts.push({
-      //   isSigner: false,
-      //   isWritable: true,
-      //   pubkey: nftsWithCollection[0].address,
-      // });
-      // const metadata = await getMetadata(userNfts[0].address);
-      // indexes.metada = remainingAccounts.length;
-      // remainingAccounts.push({
-      //   isSigner: false,
-      //   isWritable: true,
-      //   pubkey: metadata,
-      // });
-      // remainingAccountsNftIndexer.push(indexes);
-    }
 
     for (let [index, input] of Object.entries(transmuterInputs)) {
       const parsedInput = JSON.parse(input);
       switch (parsedInput.token_standard) {
         case "nft":
-          let indexes: { [key: string]: number } = {};
+          let indexes: { [key: string]: number } = {
+            mint: 0,
+            metadata: 0,
+            ata: 0,
+            creator_ata: 0,
+          };
+
           //Add mint
           indexes.mint = remainingAccounts.length;
           remainingAccounts.push({
@@ -404,7 +414,13 @@ describe("transformer", () => {
       const parsedOutput = JSON.parse(output);
       switch (parsedOutput.token_standard) {
         case "nft":
-          let indexes: { [key: string]: number } = {};
+          let indexes: { [key: string]: number } = {
+            mint: 0,
+            metadata: 0,
+            ata: 0,
+            creator_ata: 0,
+          };
+
           //Add mint
           indexes.mint = remainingAccounts.length;
           remainingAccounts.push({
@@ -454,13 +470,6 @@ describe("transformer", () => {
           remainingAccountsOutputIndexer.push({});
       }
     }
-
-    console.log("remainingAccountsNftIndexer");
-    console.log(remainingAccountsNftIndexer);
-    console.log("remainingAccountsInputIndexer");
-    console.log(remainingAccountsInputIndexer);
-    console.log("remainingAccountsOutputIndexer");
-    console.log(remainingAccountsOutputIndexer);
 
     const tx = await program.methods
       .transmute(
@@ -529,6 +538,17 @@ const getMasterEdition = async (
     ],
     TOKEN_METADATA_PROGRAM_ID
   )[0];
+};
+
+const getProgramAuthority = async (
+  c: Connection,
+  programId: PublicKey
+): Promise<PublicKey> => {
+  const info = await c.getAccountInfo(programId);
+  const dataAddress = new PublicKey(info.data.subarray(4));
+
+  const dataAcc = await c.getAccountInfo(dataAddress);
+  return new PublicKey(dataAcc.data.subarray(13, 45));
 };
 
 //solana-test-validator --url https://api.devnet.solana.com --clone metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s --clone PwDiXFxQsGra4sFFTT8r1QWRMd4vfumiWC1jfWNfdYT --reset --log

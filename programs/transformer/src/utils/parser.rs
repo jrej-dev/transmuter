@@ -1,5 +1,5 @@
 use crate::errors::TransmuterError;
-use crate::structs::{InputIndex, InputInfo, OutputInfo};
+use crate::structs::{Indexes, InputInfo, OutputInfo};
 use anchor_lang::error::Error;
 use serde_json::Result as Result_serde;
 
@@ -39,8 +39,8 @@ pub fn parse_strings(json: &String) -> Result<Vec<String>, Error> {
     Ok(strings)
 }
 
-pub fn parse_indexes(json: &String) -> Result<Vec<InputIndex>, Error> {
-    let result: Result_serde<Vec<InputIndex>> = serde_json::from_str(json);
+pub fn parse_indexes(json: &String) -> Result<Vec<Indexes>, Error> {
+    let result: Result_serde<Vec<Indexes>> = serde_json::from_str(json);
     let indexes = match result {
         Ok(indexes) => indexes,
         Err(_error) => panic!("{}", TransmuterError::JSONParseError),

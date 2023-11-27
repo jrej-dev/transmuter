@@ -13,5 +13,5 @@ pub struct Transmuter {
 
 //Vector max size?
 impl Transmuter {
-    pub const LEN: usize = 8 + 2 * 1 + 14 * 32;
+    pub const LEN: usize = 8 + 2 * 1 + 20 * 32;
 }

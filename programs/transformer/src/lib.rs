@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{burn, transfer, Burn, InitializeAccount, Transfer};
+use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
+use anchor_spl::token::{burn, transfer, Burn, InitializeAccount, TokenAccount, Transfer};
 use mpl_token_metadata::state::{Metadata, TokenMetadataAccount};
+use std::str::FromStr;
 
 mod contexts;
 use contexts::*;
@@ -18,11 +20,45 @@ declare_id!("GTyWp6xRHsSC8QXFYTifGResqVRLt9iGjsifSxNswJtA");
 
 #[program]
 pub mod transformer {
-    use anchor_lang::solana_program::program::invoke_signed;
-
     use super::*;
 
-    pub fn create(ctx: Context<Create>, seed: u64) -> Result<()> {
+    pub fn create(ctx: Context<Create>, seed: u64, nft_indexer_json: String) -> Result<()> {
+        let nft_indexes = parse_indexes(&nft_indexer_json)?;
+
+        if nft_indexes.len() > 0 {
+            for index in 0..nft_indexes.len() {
+                let current_nft_indexes = &nft_indexes[index];
+
+                let current_ata_index = current_nft_indexes.ata.unwrap();
+                let ata = &ctx.remaining_accounts[current_ata_index].to_account_info();
+                let mut ata_data: &[u8] = &ata.try_borrow_data()?;
+                let deserialized_ata = TokenAccount::try_deserialize(&mut ata_data)?;
+
+                require!(
+                    deserialized_ata.owner.key() == ctx.accounts.creator.key()
+                        && deserialized_ata.amount == 1,
+                    TransmuterError::InvalidNFTOwner
+                );
+
+                let metadata: Metadata = Metadata::from_account_info(
+                    &ctx.remaining_accounts[current_nft_indexes.metadata].to_account_info(),
+                )?;
+                let collection_pubkey = metadata.collection.unwrap().key;
+                require!(
+                    collection_pubkey.key() == collection_pubkey.key(),
+                    TransmuterError::InvalidNFTOwner
+                );
+            }
+        } else {
+            //Fee 0.75 SOL
+            ctx.accounts
+                .pay_fee(ctx.accounts.owner.to_account_info(), 75000000);
+
+            //Fee 0.25 SOL
+            ctx.accounts
+                .pay_fee(ctx.accounts.wba.to_account_info(), 25000000);
+        }
+
         let transmuter = &mut ctx.accounts.transmuter;
         transmuter.seed = seed;
         transmuter.creator = ctx.accounts.creator.as_ref().key();
@@ -60,24 +96,7 @@ pub mod transformer {
         input_indexer_json: String,
         output_indexer_json: String,
     ) -> Result<()> {
-        //check if user has TitanDog NFT or enough funds
-        //paying fees
         msg!("TRANSMUTE");
-
-        // let nft_indexes = parse_indexes(&nft_indexer_json)?;
-
-        // for index in 0..nft_indexes.len() {
-        //     let current_nft_indexes = &nft_indexes[index];
-            
-        //     let metadata: Metadata = Metadata::from_account_info(
-        //         &ctx.remaining_accounts[current_nft_indexes.metadata].to_account_info(),
-        //     )?;
-        //     let collection_pubkey = metadata.collection.unwrap().key;
-        //     msg!("collection pubkey: {:?}", collection_pubkey);
-        //     //verify collection
-
-        //     //verify owner of nft
-        // }
 
         let transmuter = &ctx.accounts.transmuter;
         let input_indexes = parse_indexes(&input_indexer_json)?;
@@ -105,10 +124,13 @@ pub mod transformer {
                         TransmuterError::InvalidInputAccount
                     );
 
-                    let ata: &AccountInfo<'_> = &ctx.remaining_accounts[current_input_indexes.ata];
+                    let current_ata_index = current_input_indexes.ata.unwrap();
+                    let current_creator_ata_index = current_input_indexes.creator_ata.unwrap();
 
+                    let ata: &AccountInfo<'_> = &ctx.remaining_accounts[current_ata_index];
                     let creator_ata: &AccountInfo<'_> =
-                        &ctx.remaining_accounts[current_input_indexes.creator_ata];
+                        &ctx.remaining_accounts[current_creator_ata_index];
+
                     let mint: &AccountInfo<'_> =
                         &ctx.remaining_accounts[current_input_indexes.mint];
                     msg!("ata : {}", ata.key());

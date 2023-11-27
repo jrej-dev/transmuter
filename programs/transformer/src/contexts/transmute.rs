@@ -1,5 +1,5 @@
 use crate::errors::TransmuterError;
-use crate::structs::{InputIndex, InputInfo, OutputInfo, Transmuter};
+use crate::structs::Transmuter;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::{invoke, invoke_signed};
 use anchor_spl::{
