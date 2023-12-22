@@ -8,7 +8,8 @@ pub struct Transmuter {
     pub creator: Pubkey,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
-    pub collections: Vec<String>,
+    pub traits: Vec<String>,
+    pub rules: Vec<String>,
 }
 
 //Vector max size?

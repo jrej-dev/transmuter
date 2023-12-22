@@ -18,4 +18,8 @@ pub enum TransmuterError {
     InvalidNFTOwner,
     #[msg("Invalid program owner provided for transmuter creation")]
     InvalidProgramOwner,
+    #[msg("Rule could not be applied on transmute")]
+    RuleNotApplied,
+    #[msg("Missing trait in transmuter")]
+    MissingTrait,
 }

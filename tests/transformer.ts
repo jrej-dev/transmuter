@@ -121,19 +121,19 @@ describe("transformer", () => {
       isMutable: true,
     });
 
-    outputCollection = await creatorMetaplex.nfts().create({
-      name: "Output collection",
-      symbol: "OUPT",
-      sellerFeeBasisPoints: 500,
-      uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-      creators: [
-        {
-          address: creator.publicKey,
-          share: 100,
-        },
-      ],
-      isMutable: true,
-    });
+    // outputCollection = await creatorMetaplex.nfts().create({
+    //   name: "Output collection",
+    //   symbol: "OUPT",
+    //   sellerFeeBasisPoints: 500,
+    //   uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    //   creators: [
+    //     {
+    //       address: creator.publicKey,
+    //       share: 100,
+    //     },
+    //   ],
+    //   isMutable: true,
+    // });
   });
 
   it("mints input NFT", async () => {
@@ -142,7 +142,7 @@ describe("transformer", () => {
         name: `Generug input #${i + 1}`,
         symbol: "GNRG",
         sellerFeeBasisPoints: 500,
-        uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+        uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI?Background=orange&Test=test&Breed=Shiba",
         creators: [
           {
             address: creator.publicKey,
@@ -163,32 +163,32 @@ describe("transformer", () => {
     }
   });
 
-  it("mints output NFTs", async () => {
-    for (let i = 0; i < 1; i++) {
-      let mint = await creatorMetaplex.nfts().create({
-        name: `Generug output #${i + 1}`,
-        symbol: "GNRG",
-        sellerFeeBasisPoints: 500,
-        uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-        creators: [
-          {
-            address: creator.publicKey,
-            share: 100,
-          },
-        ],
-        collection: outputCollection.nft.address,
-        isMutable: true,
-      });
-      outputMints.push(mint);
+  // it("mints output NFTs", async () => {
+  //   for (let i = 0; i < 1; i++) {
+  //     let mint = await creatorMetaplex.nfts().create({
+  //       name: `Generug output #${i + 1}`,
+  //       symbol: "GNRG",
+  //       sellerFeeBasisPoints: 500,
+  //       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+  //       creators: [
+  //         {
+  //           address: creator.publicKey,
+  //           share: 100,
+  //         },
+  //       ],
+  //       collection: outputCollection.nft.address,
+  //       isMutable: true,
+  //     });
+  //     outputMints.push(mint);
 
-      await creatorMetaplex.nfts().verifyCollection({
-        mintAddress: mint.nft.address,
-        collectionMintAddress: outputCollection.nft.address,
-      });
+  //     await creatorMetaplex.nfts().verifyCollection({
+  //       mintAddress: mint.nft.address,
+  //       collectionMintAddress: outputCollection.nft.address,
+  //     });
 
-      console.log(`The nft #${i + 1}: ${mint.nft.address}`);
-    }
-  });
+  //     console.log(`The nft #${i + 1}: ${mint.nft.address}`);
+  //   }
+  // });
 
   it("creates the transmuter", async () => {
     const remainingAccounts = [];
@@ -198,58 +198,62 @@ describe("transformer", () => {
       .nfts()
       .findAllByOwner({ owner: creator.publicKey });
 
-    const nftsWithCollection = creatorNfts.filter((nft) => nft.collection) as {
-      address: PublicKey;
-      mintAddress: PublicKey;
-      collection: { address: PublicKey };
-    }[];
+    if (creatorNfts && creatorNfts.length > 0) {
+      const nftsWithCollection = creatorNfts.filter(
+        (nft) => nft.collection
+      ) as {
+        address: PublicKey;
+        mintAddress: PublicKey;
+        collection: { address: PublicKey };
+      }[];
 
-    const foundNft =
-      nftsWithCollection.length > 0 &&
-      nftsWithCollection[0].collection.address.toBase58() ===
-        inputCollection.nft.address.toBase58();
+      const foundNft =
+        nftsWithCollection.length > 0 &&
+        nftsWithCollection[0].collection.address.toBase58() ===
+          inputCollection.nft.address.toBase58();
 
-    if (foundNft) {
-      let indexes: { [key: string]: number } = {
-        mint: 0,
-        metadata: 0,
-        ata: 0,
-        creator_ata: 0,
-      };
+      if (foundNft) {
+        let indexes: { [key: string]: number } = {
+          mint: 0,
+          metadata: 0,
+          ata: 0,
+          creator_ata: 0,
+        };
 
-      //get mint
-      indexes.mint = remainingAccounts.length;
-      remainingAccounts.push({
-        isSigner: false,
-        isWritable: true,
-        pubkey: nftsWithCollection[0].mintAddress,
-      });
+        //get mint
+        indexes.mint = remainingAccounts.length;
+        remainingAccounts.push({
+          isSigner: false,
+          isWritable: true,
+          pubkey: nftsWithCollection[0].mintAddress,
+        });
 
-      //get metadata
-      const metadata = await getMetadata(nftsWithCollection[0].mintAddress);
-      indexes.metadata = remainingAccounts.length;
-      remainingAccounts.push({
-        isSigner: false,
-        isWritable: true,
-        pubkey: metadata,
-      });
+        //get metadata
+        const metadata = await getMetadata(nftsWithCollection[0].mintAddress);
+        indexes.metadata = remainingAccounts.length;
+        remainingAccounts.push({
+          isSigner: false,
+          isWritable: true,
+          pubkey: metadata,
+        });
 
-      //get ata
-      const ata = await getOrCreateAssociatedTokenAccount(
-        anchor.getProvider().connection,
-        user,
-        nftsWithCollection[0].mintAddress,
-        user.publicKey,
-        false
-      );
+        //get ata
+        const ata = await getOrCreateAssociatedTokenAccount(
+          anchor.getProvider().connection,
+          user,
+          nftsWithCollection[0].mintAddress,
+          user.publicKey,
+          false
+        );
 
-      indexes.ata = remainingAccounts.length;
-      remainingAccounts.push({
-        isSigner: false,
-        isWritable: true,
-        pubkey: ata.address,
-      });
-      remainingAccountsNftIndexer.push(indexes);
+        indexes.ata = remainingAccounts.length;
+        remainingAccounts.push({
+          isSigner: false,
+          isWritable: true,
+          pubkey: ata.address,
+        });
+        remainingAccountsNftIndexer.push(indexes);
+      }
     }
 
     const owner = await getProgramAuthority(
@@ -277,25 +281,6 @@ describe("transformer", () => {
     console.log("Your transaction signature", tx);
   });
 
-  // it("adds one collection", async () => {
-  //   const tx = await program.methods
-  //     .addCollection(
-  //       seed,
-  //       JSON.stringify({
-  //         name: "test",
-  //         pub,
-  //       })
-  //     )
-  //     .accounts({
-  //       creator: creator.publicKey,
-  //       transmuter,
-  //     })
-  //     .signers([creator])
-  //     .rpc();
-  //   await confirmTx(tx);
-  //   console.log("Your transaction signature", tx);
-  // });
-
   it("adds one input", async () => {
     const tx = await program.methods
       .addInput(
@@ -317,15 +302,55 @@ describe("transformer", () => {
     console.log("Your transaction signature", tx);
   });
 
-  it("adds one output", async () => {
+  // it("adds one output", async () => {
+  //   const tx = await program.methods
+  //     .addOutput(
+  //       seed,
+  //       JSON.stringify({
+  //         token_standard: "nft",
+  //         collection: outputCollection.nft.address.toBase58(),
+  //         method: "mint",
+  //         amount: 1,
+  //       })
+  //     )
+  //     .accounts({
+  //       creator: creator.publicKey,
+  //       transmuter,
+  //     })
+  //     .signers([creator])
+  //     .rpc();
+  //   await confirmTx(tx);
+  //   console.log("Your transaction signature", tx);
+  // });
+
+  it("adds one rule", async () => {
     const tx = await program.methods
-      .addOutput(
+      .addRule(
         seed,
         JSON.stringify({
-          token_standard: "nft",
-          collection: outputCollection.nft.address.toBase58(),
-          method: "mint",
-          amount: 1,
+          name: "split",
+          rule_type: "mint",
+          trait_types: ["Background", "Test"],
+        })
+      )
+      .accounts({
+        creator: creator.publicKey,
+        transmuter,
+      })
+      .signers([creator])
+      .rpc();
+    await confirmTx(tx);
+    console.log("Your transaction signature", tx);
+  });
+
+  it("adds a trait", async () => {
+    const tx = await program.methods
+      .addTrait(
+        seed,
+        JSON.stringify({
+          trait_type: "Test",
+          value: "test",
+          uri: "https://www.titandogs.io/static/media/paw.358714a6.png",
         })
       )
       .accounts({
