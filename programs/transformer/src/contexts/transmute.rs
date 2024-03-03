@@ -4,11 +4,13 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::{invoke, invoke_signed};
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{mint_to, Mint, MintTo, Token, TokenAccount},
+    token::{mint_to, set_authority, Mint, MintTo, SetAuthority, Token, TokenAccount},
 };
 
-// use image::{imageops, DynamicImage};
-use mpl_token_metadata::instruction::{create_master_edition_v3, create_metadata_accounts_v3};
+use mpl_token_metadata::instructions::{
+    CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
+};
+use mpl_token_metadata::types::DataV2;
 use serde_json::Result as Result_serde;
 
 #[derive(Accounts)]
@@ -37,6 +39,8 @@ pub struct Transmute<'info> {
     pub system_program: Program<'info, System>,
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub rent: AccountInfo<'info>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    pub sysvar_instructions: AccountInfo<'info>,
 }
 
 pub struct TransmuteParams {
@@ -45,7 +49,7 @@ pub struct TransmuteParams {
 }
 
 impl<'info> Transmute<'info> {
-    pub fn mint_token(&self, mint: AccountInfo<'info>, ata: AccountInfo<'info>) -> Result<()> {
+    pub fn mint_token(&self, mint: &AccountInfo<'info>, ata: &AccountInfo<'info>) -> Result<()> {
         let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
         let signer_seeds = &[&seeds[..]];
 
@@ -61,89 +65,91 @@ impl<'info> Transmute<'info> {
             signer_seeds,
         );
 
-        mint_to(mint_ctx, 1)?;
+        mint_to(mint_ctx, 1);
         Ok(())
     }
 
     pub fn create_metadata(
         &self,
-        title: String,
-        symbol: String,
-        uri: String,
+        title: &String,
+        symbol: &String,
+        uri: &String,
         seller_fee_basis_point: u16,
-        metadata: AccountInfo<'info>,
-        mint: AccountInfo<'info>,
+        metadata: &AccountInfo<'info>,
+        mint: &AccountInfo<'info>,
     ) -> Result<()> {
         let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
         let signer_seeds = &[&seeds[..]];
 
-        invoke_signed(
-            &create_metadata_accounts_v3(
-                self.token_metadata_program.key(),
-                metadata.key(),
-                mint.key(),
-                self.auth.key(),
-                self.user.key(),
-                self.auth.key(),
-                title,
-                symbol,
-                uri,
-                None,
-                seller_fee_basis_point,
-                true,
-                true,
-                None,
-                None,
-                None,
-            ),
-            &[
-                metadata.to_account_info(),
-                mint.to_account_info(),
-                self.auth.to_account_info(),
-                self.user.to_account_info(),
-                self.token_metadata_program.to_account_info(),
-                self.token_program.to_account_info(),
-                self.system_program.to_account_info(),
-                self.rent.to_account_info(),
-            ],
-            signer_seeds,
-        );
+        let data: DataV2 = DataV2 {
+            name: title.to_string(),
+            symbol: symbol.to_string(),
+            uri: uri.to_string(),
+            seller_fee_basis_points: seller_fee_basis_point,
+            creators: None,
+            collection: None,
+            uses: None,
+        };
+
+        CreateMetadataAccountV3CpiBuilder::new(&self.token_metadata_program)
+            .metadata(&metadata.to_account_info())
+            .mint(&mint.to_account_info())
+            .mint_authority(&self.auth.to_account_info())
+            .payer(&self.user.to_account_info())
+            .update_authority(&self.auth.to_account_info(), true)
+            .system_program(&self.system_program)
+            .rent(Some(&self.rent))
+            .data(data)
+            .is_mutable(true)
+            .invoke_signed(signer_seeds);
+
         Ok(())
     }
 
     pub fn create_master_edition(
         &self,
-        master_edition: AccountInfo<'info>,
-        mint: AccountInfo<'info>,
-        metadata: AccountInfo<'info>,
+        master_edition: &AccountInfo<'info>,
+        mint: &AccountInfo<'info>,
+        metadata: &AccountInfo<'info>,
     ) -> Result<()> {
         let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
         let signer_seeds = &[&seeds[..]];
 
-        invoke_signed(
-            &create_master_edition_v3(
-                self.token_metadata_program.key(),
-                master_edition.key(),
-                mint.key(),
-                self.auth.key(),
-                self.auth.key(),
-                metadata.key(),
-                self.user.key(),
-                Some(0),
-            ),
-            &[
-                master_edition.to_account_info(),
-                metadata.to_account_info(),
-                mint.to_account_info(),
-                self.auth.to_account_info(),
-                self.user.to_account_info(),
-                self.token_metadata_program.to_account_info(),
-                self.token_program.to_account_info(),
-                self.system_program.to_account_info(),
-                self.rent.to_account_info(),
-            ],
-            signer_seeds,
-        );
+        CreateMasterEditionV3CpiBuilder::new(&self.token_metadata_program)
+            .edition(&master_edition.to_account_info())
+            .mint(&mint.to_account_info())
+            .update_authority(&self.auth.to_account_info())
+            .mint_authority(&self.auth.to_account_info())
+            .payer(&self.user.to_account_info())
+            .metadata(&metadata.to_account_info())
+            .max_supply(1)
+            .token_program(&self.token_program)
+            .system_program(&self.system_program)
+            .rent(Some(&self.rent))
+            .invoke_signed(signer_seeds);
+
+        Ok(())
+    }
+
+    pub fn update_authority(
+        &self,
+        metadata: &AccountInfo<'info>,
+        mint: &AccountInfo<'info>,
+    ) -> Result<()> {
+        let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
+        let signer_seeds = &[&seeds[..]];
+
+        UpdateV1CpiBuilder::new(&self.token_program.to_account_info())
+            .authority(&self.auth.to_account_info())
+            .mint(&mint.to_account_info())
+            .metadata(&metadata.to_account_info())
+            .new_update_authority(self.creator.key())
+            .payer(&self.user.to_account_info())
+            .system_program(&self.system_program.to_account_info())
+            .sysvar_instructions(&self.sysvar_instructions.to_account_info())
+            .add_remaining_account(&self.token_metadata_program.to_account_info(), false, false)
+            .invoke_signed(signer_seeds);
+
         Ok(())
     }
 }

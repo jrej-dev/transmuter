@@ -1,9 +1,17 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
-use anchor_spl::token::{burn, transfer, Burn, InitializeAccount, TokenAccount, Transfer};
-use mpl_token_metadata::state::{Metadata, TokenMetadataAccount};
+use anchor_lang::{prelude::*, solana_program::native_token::LAMPORTS_PER_SOL, system_program};
+use anchor_spl::{
+    associated_token, token,
+    token::{
+        burn, set_authority, spl_token::instruction::AuthorityType, transfer, Burn,
+        InitializeAccount, SetAuthority, TokenAccount, Transfer,
+    },
+};
+
+use mpl_token_metadata::accounts::Metadata;
 use multimap::MultiMap;
-use std::str::FromStr;
+
+use std::{collections::HashMap, str::FromStr};
+
 use url::Url;
 
 mod contexts;
@@ -18,14 +26,23 @@ use structs::*;
 mod utils;
 use utils::*;
 
+use spl_token::solana_program::program::invoke_signed;
+
 declare_id!("GTyWp6xRHsSC8QXFYTifGResqVRLt9iGjsifSxNswJtA");
 
 #[program]
 pub mod transformer {
     use super::*;
 
-    pub fn create(ctx: Context<Create>, seed: u64, nft_indexer_json: String) -> Result<()> {
-        let nft_indexes = parse_indexes(&nft_indexer_json)?;
+    pub fn create(
+        ctx: Context<Create>,
+        seed: u64,
+        nft_indexer_json: String,
+        input_json: String,
+        output_json: String,
+        traits_uri: String,
+    ) -> Result<()> {
+        let nft_indexes = parse_json::<Indexes>(&nft_indexer_json)?;
 
         if nft_indexes.len() > 0 {
             for index in 0..nft_indexes.len() {
@@ -42,7 +59,7 @@ pub mod transformer {
                     TransmuterError::InvalidNFTOwner
                 );
 
-                let metadata: Metadata = Metadata::from_account_info(
+                let metadata: Metadata = Metadata::try_from(
                     &ctx.remaining_accounts[current_nft_indexes.metadata].to_account_info(),
                 )?;
                 let collection_pubkey = metadata.collection.unwrap().key;
@@ -66,31 +83,11 @@ pub mod transformer {
         transmuter.creator = ctx.accounts.creator.as_ref().key();
         transmuter.auth_bump = ctx.bumps.auth;
         transmuter.transmuter_bump = ctx.bumps.transmuter;
-        Ok(())
-    }
 
-    pub fn add_input(ctx: Context<AddInput>, seed: u64, input_json: String) -> Result<()> {
-        let transmuter = &mut ctx.accounts.transmuter;
-        transmuter.inputs.push(input_json);
-        Ok(())
-    }
-
-    pub fn add_output(ctx: Context<AddOutput>, seed: u64, output_json: String) -> Result<()> {
-        let transmuter = &mut ctx.accounts.transmuter;
-        transmuter.outputs.push(output_json);
-
-        Ok(())
-    }
-
-    pub fn add_rule(ctx: Context<AddTraits>, seed: u64, rule_json: String) -> Result<()> {
-        let transmuter = &mut ctx.accounts.transmuter;
-        transmuter.rules.push(rule_json);
-        Ok(())
-    }
-
-    pub fn add_trait(ctx: Context<AddTraits>, seed: u64, traits_json: String) -> Result<()> {
-        let transmuter = &mut ctx.accounts.transmuter;
-        transmuter.traits.push(traits_json);
+        transmuter.inputs = input_json;
+        transmuter.outputs = output_json;
+        transmuter.traits_uri = traits_uri;
+        
         Ok(())
     }
 
@@ -101,99 +98,239 @@ pub mod transformer {
         output_indexer_json: String,
     ) -> Result<()> {
         msg!("TRANSMUTE");
-        let mut tokens_to_transfer: Vec<[&AccountInfo<'_>; 2]> = Vec::new();
-        let mut tokens_to_burn: Vec<[&AccountInfo<'_>; 2]> = Vec::new();
         let transmuter = &ctx.accounts.transmuter;
 
-        //Find rules
-        let rules: Vec<Rule> = transmuter
-            .rules
-            .iter()
-            .map(|rule| parse_rule(rule).unwrap())
-            .rev()
-            .collect();
-        let mint_rule_index: Option<usize> = rules.iter().position(|rule| rule.rule_type == "mint");
+        //Handle input verification
+        let input_indexes = parse_json::<Indexes>(&input_indexer_json)?;
+        let transmuter_inputs = parse_json::<InputInfo>(&transmuter.inputs)?;
 
-        //Handle input
-        let input_indexes = parse_indexes(&input_indexer_json)?;
-        for index in 0..transmuter.inputs.len() {
-            let input_info = parse_input(&transmuter.inputs[index])?;
-            msg!("token_standard, {}", input_info.token_standard);
-            msg!("method, {}", input_info.method);
-            msg!("collection, {}", input_info.collection);
-
+        for index in 0..transmuter_inputs.len() {
+            let input_info = &transmuter_inputs[index];
             let current_input_indexes = &input_indexes[index];
 
             match input_info.token_standard.as_str() {
                 "nft" => {
-                    let mint: &AccountInfo<'_> =
-                        &ctx.remaining_accounts[current_input_indexes.mint];
-                    let metadata: Metadata = Metadata::from_account_info(
+                    let input_metadata: Metadata = Metadata::try_from(
                         &ctx.remaining_accounts[current_input_indexes.metadata].to_account_info(),
                     )?;
 
                     //Verifying collection
-                    let collection_pubkey = metadata.collection.unwrap().key;
+                    let collection_pubkey = input_metadata.collection.unwrap().key;
                     require!(
                         collection_pubkey.to_string() == input_info.collection,
                         TransmuterError::InvalidInputAccount
                     );
 
-                    //Handle input-based rules
-                    if mint_rule_index.is_some() {
-                        if rules[mint_rule_index.unwrap()].name == "split" {
-                            let trait_types = &rules[mint_rule_index.unwrap()].trait_types;
-                            //There should be as much output mints as trait_types otherwise slice
+                    if input_info.rule.is_some() {
+                        msg!("There is an input rule");
+                        let rule = input_info.rule.as_ref().unwrap();
+                        msg!("rule.name: {:?}", rule.name);
 
-                            msg!("metadata uri, {}", metadata.data.uri);
+                        if rule.name == "traits" {
+                            msg!("Traits rule");
 
-                            let parsed_url = Url::parse(&metadata.data.uri).unwrap();
-                            let hash_query: MultiMap<String, _> =
+                            msg!("metadata uri, {}", &input_metadata.uri);
+                            let parsed_url = Url::parse(&input_metadata.uri).unwrap();
+                            msg!("parsed_url works: {:?}", parsed_url);
+
+                            let hash_query: Vec<_> =
                                 parsed_url.query_pairs().into_owned().collect();
 
-                            let mut filtered_hash_query: MultiMap<String, String> = MultiMap::new();
-
-                            for (key, value) in hash_query.iter() {
-                                if trait_types.contains(key) {
-                                    filtered_hash_query.insert(key.to_string(), value.to_string());
-                                }
-                            }
-
+                            //verify NFT traits
                             require!(
-                                filtered_hash_query.len() > 0,
-                                TransmuterError::RuleNotApplied,
+                                rule.trait_types.clone().into_iter().all(
+                                    |(trait_key, trait_value)| hash_query.clone().into_iter().any(
+                                        |(key, value)| &trait_key == &key
+                                            && (&trait_value == &value
+                                                || &trait_value == &String::from("*"))
+                                    )
+                                ),
+                                TransmuterError::RuleNotApplied
                             );
+                        }
+                    }
+                }
+                _ => msg!("Token standard not found"),
+            };
+        }
 
-                            for (key, value) in filtered_hash_query.iter() {
+        //should handle output and mint here
+        let mut current_index = 0;
+        let output_indexes = parse_json::<Indexes>(&output_indexer_json)?;
+        let transmuter_outputs = parse_json::<OutputInfo>(&transmuter.outputs)?;
+
+        for i in 0..transmuter_outputs.len() {
+            let output_info = &transmuter_outputs[i];
+            let amount = output_info.amount;
+
+            let current_output_indexes = &output_indexes[current_index];
+
+            let mint_account = &ctx.remaining_accounts[current_output_indexes.mint];
+
+            let current_ata_index = current_output_indexes.ata.unwrap();
+            let ata_account = &ctx.remaining_accounts[current_ata_index];
+
+            let metadata_account = &ctx.remaining_accounts[current_output_indexes.metadata];
+
+            let current_master_edition_index = current_output_indexes.master_edition.unwrap();
+            let master_edition_account = &ctx.remaining_accounts[current_master_edition_index];
+
+            if output_info.rule.is_some() {
+                msg!("There is an output rule");
+                let rule = output_info.rule.as_ref().unwrap();
+                msg!("rule.name: {:?}", rule.name);
+
+                let mint_info = output_info.mint.as_ref().unwrap();
+
+                if rule.name == "split" {
+                    msg!("Split rule");
+
+                    //There should be as much output mints as trait_types
+                    require!(
+                        rule.trait_types.len() as u64 == output_info.amount,
+                        TransmuterError::RuleNotApplied,
+                    );
+
+                    //Find metadata from input
+                    for j in 0..transmuter_inputs.len() {
+                        let current_input_indexes = &input_indexes[j];
+
+                        let input_metadata: Metadata = Metadata::try_from(
+                            &ctx.remaining_accounts[current_input_indexes.metadata]
+                                .to_account_info(),
+                        )?;
+
+                        let parsed_url = Url::parse(&input_metadata.uri).unwrap();
+                        let hash_query: Vec<_> = parsed_url.query_pairs().into_owned().collect();
+
+                        for (key, value) in hash_query.clone().iter() {
+                            if rule
+                                .trait_types
+                                .iter()
+                                .any(|(trait_key, trait_value)| trait_key == key)
+                            {
                                 msg!("key: {:?}, val: {:?}", key, value);
-                                let found_trait_json = transmuter
-                                    .traits
-                                    .iter()
-                                    .find(|json| &parse_trait(json).unwrap().trait_type == key);
 
-                                let mut found_trait;
-                                if found_trait_json.is_some() {
-                                    found_trait = parse_trait(found_trait_json.unwrap())?;
-                                    msg!("trait uri: {:?}", found_trait.uri)
-                                }
+                                //HERE
+                                msg!("trait found");
+                                msg!("use mint uri: {:?}", mint_info.uri);
+                                let mint_uri = mint_info.uri.to_owned() + "?" + key + "=" + value;
+                                msg!("new mint uri: {:?}", mint_uri);
 
-                                require!(found_trait.is_some(), TransmuterError::MissingTrait);
+                                //TODO apply this to mint
+                                let output_collection = &output_info.collection;
 
-                                //create minting json
-                                //get collection to add
                                 //mint as much as input traits (max output)
+                                &ctx.accounts.mint_token(mint_account, ata_account);
+                                &ctx.accounts.create_metadata(
+                                    &mint_info.title,
+                                    &mint_info.symbol,
+                                    &mint_uri,
+                                    500,
+                                    metadata_account,
+                                    mint_account,
+                                );
+                                &ctx.accounts.create_master_edition(
+                                    master_edition_account,
+                                    mint_account,
+                                    metadata_account,
+                                );
+                                &ctx.accounts.update_authority(metadata_account, mint_account);
+
+                                current_index += 1;
+                            }
+                        }
+                    }
+                } else if rule.name == "merge" {
+                    let mut trait_values: Vec<(String, String)> = Vec::new();
+                    for (key, value) in rule.trait_types.clone().into_iter() {
+                        for j in 0..transmuter_inputs.len() {
+                            let current_input_indexes = &input_indexes[j];
+
+                            let input_metadata: Metadata = Metadata::try_from(
+                                &ctx.remaining_accounts[current_input_indexes.metadata]
+                                    .to_account_info(),
+                            )?;
+
+                            let parsed_url = Url::parse(&input_metadata.uri).unwrap();
+                            let hash_query: Vec<_> =
+                                parsed_url.query_pairs().into_owned().collect();
+
+                            for (query_key, query_value) in hash_query.iter() {
+                                if query_key == &key {
+                                    trait_values.push((key.clone(), String::from(query_value)));
+                                    break;
+                                }
                             }
                         }
                     }
 
-                    //Handle input disposal
+                    let uri_traits = trait_values
+                        .into_iter()
+                        .map(|trait_value| trait_value.0 + "=" + &trait_value.1 + "&")
+                        .rev()
+                        .collect::<Vec<_>>()
+                        .connect("");
+
+                    let uri = mint_info.uri.to_owned() + "?" + &uri_traits[0..uri_traits.len() - 1];
+
+                    &ctx.accounts.mint_token(mint_account, ata_account);
+                    &ctx.accounts.create_metadata(
+                        &mint_info.title,
+                        &mint_info.symbol,
+                        &uri,
+                        500,
+                        metadata_account,
+                        mint_account,
+                    );
+                    &ctx.accounts.create_master_edition(
+                        master_edition_account,
+                        mint_account,
+                        metadata_account,
+                    );
+                    &ctx.accounts
+                        .update_authority(metadata_account, mint_account);
+                } else {
+                    msg!("Rule not found");
+                }
+            } else {
+                msg!("There is no rule");
+                let mint_info = output_info.mint.as_ref().unwrap();
+                &ctx.accounts.mint_token(mint_account, ata_account);
+                &ctx.accounts.create_metadata(
+                    &mint_info.title,
+                    &mint_info.symbol,
+                    &mint_info.uri,
+                    500,
+                    metadata_account,
+                    mint_account,
+                );
+                &ctx.accounts.create_master_edition(
+                    master_edition_account,
+                    mint_account,
+                    metadata_account,
+                );
+                &ctx.accounts.update_authority(metadata_account, mint_account);
+            }
+            msg!("END OF LOOP");
+        }
+
+        //mint is successful =>
+        //Handle input disposal
+        let mut tokens_to_transfer: Vec<[&AccountInfo<'_>; 2]> = Vec::new();
+        let mut tokens_to_burn: Vec<[&AccountInfo<'_>; 2]> = Vec::new();
+        for index in 0..transmuter_inputs.len() {
+            let input_info = &transmuter_inputs[index];
+            let current_input_indexes = &input_indexes[index];
+            match input_info.token_standard.as_str() {
+                "nft" => {
+                    let mint = &ctx.remaining_accounts[current_input_indexes.mint];
                     let current_ata_index = current_input_indexes.ata.unwrap();
-                    let ata: &AccountInfo<'_> = &ctx.remaining_accounts[current_ata_index];
+                    let ata = &ctx.remaining_accounts[current_ata_index];
 
                     if input_info.method == "transfer" {
                         let current_creator_ata_index = current_input_indexes.creator_ata.unwrap();
-                        let creator_ata: &AccountInfo<'_> =
-                            &ctx.remaining_accounts[current_creator_ata_index];
+                        let creator_ata = &ctx.remaining_accounts[current_creator_ata_index];
 
                         tokens_to_transfer.push([ata, creator_ata]);
                     } else if input_info.method == "burn" {
@@ -204,100 +341,67 @@ pub mod transformer {
             };
         }
 
-        //Mint
-        //if success burn or transfer
-        msg!("SHOULD MINT NOW");
+        if tokens_to_transfer.len() > 0 {
+            let transfer_atas = tokens_to_transfer
+                .iter()
+                .map(|&x| x[0].key().to_string())
+                .collect::<Vec<_>>();
 
-        // let output_indexes = parse_indexes(&input_indexer_json)?;
+            //There should be no duplicates
+            require!(
+                has_unique_elements(&transfer_atas),
+                TransmuterError::DuplicateInputAccount
+            );
 
-        // if tokens_to_transfer.len() > 0 {
-        //     let transfer_atas = tokens_to_transfer
-        //         .iter()
-        //         .map(|&x| x[0].key().to_string())
-        //         .collect::<Vec<_>>();
+            //There should be the correct number of inputs
+            require!(
+                &transfer_atas.len() == &transmuter_inputs.len(),
+                TransmuterError::InvalidInputAccount
+            );
 
-        //     //There should be no duplicates
-        //     require!(
-        //         has_unique_elements(&transfer_atas),
-        //         TransmuterError::DuplicateInputAccount
-        //     );
+            //transfer nft to owner
+            for index in 0..tokens_to_transfer.len() {
+                let cpi_accounts = Transfer {
+                    from: tokens_to_transfer[index][0].to_account_info(),
+                    to: tokens_to_transfer[index][1].to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                };
 
-        //     //There should be the correct number of inputs
-        //     require!(
-        //         &transfer_atas.len() == &transmuter.inputs.len(),
-        //         TransmuterError::InvalidInputAccount
-        //     );
+                let cpi_program = ctx.accounts.token_program.to_account_info();
+                transfer(CpiContext::new(cpi_program, cpi_accounts), 1)?;
+            }
+        }
 
-        //     //transfer nft to owner
-        //     for index in 0..tokens_to_transfer.len() {
-        //         let cpi_accounts = Transfer {
-        //             from: tokens_to_transfer[index][0].to_account_info(),
-        //             to: tokens_to_transfer[index][1].to_account_info(),
-        //             authority: ctx.accounts.user.to_account_info(),
-        //         };
+        if tokens_to_burn.len() > 0 {
+            let burn_atas = tokens_to_burn
+                .iter()
+                .map(|&x| x[0].key().to_string())
+                .collect::<Vec<_>>();
 
-        //         let cpi_program = ctx.accounts.token_program.to_account_info();
-        //         transfer(CpiContext::new(cpi_program, cpi_accounts), 1)?;
-        //     }
-        // }
+            //There should be no duplicates
+            require!(
+                has_unique_elements(&burn_atas),
+                TransmuterError::DuplicateInputAccount
+            );
 
-        // if tokens_to_burn.len() > 0 {
-        //     let burn_atas = tokens_to_burn
-        //         .iter()
-        //         .map(|&x| x[0].key().to_string())
-        //         .collect::<Vec<_>>();
+            //There should be the correct number of inputs
+            require!(
+                &burn_atas.len() == &transmuter_inputs.len(),
+                TransmuterError::InvalidInputAccount
+            );
 
-        //     //There should be no duplicates
-        //     require!(
-        //         has_unique_elements(&burn_atas),
-        //         TransmuterError::DuplicateInputAccount
-        //     );
+            for index in 0..tokens_to_burn.len() {
+                let cpi_accounts = Burn {
+                    mint: tokens_to_burn[index][0].to_account_info(),
+                    from: tokens_to_burn[index][1].to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                };
 
-        //     //There should be the correct number of inputs
-        //     require!(
-        //         &burn_atas.len() == &transmuter.inputs.len(),
-        //         TransmuterError::InvalidInputAccount
-        //     );
-
-        //     for index in 0..tokens_to_burn.len() {
-        //         let cpi_accounts = Burn {
-        //             mint: tokens_to_burn[index][0].to_account_info(),
-        //             from: tokens_to_burn[index][1].to_account_info(),
-        //             authority: ctx.accounts.user.to_account_info(),
-        //         };
-
-        //         let cpi_program = ctx.accounts.token_program.to_account_info();
-        //         burn(CpiContext::new(cpi_program, cpi_accounts), 1)?;
-        //     }
-        // }
-
-        msg!("AFTER");
+                let cpi_program = ctx.accounts.token_program.to_account_info();
+                burn(CpiContext::new(cpi_program, cpi_accounts), 1)?;
+            }
+        }
 
         Ok(())
     }
 }
-
-//for titandogs
-
-//-Burn 1 NFT
-//-Generate 5 metadata + 5 images
-//-Mint 5 generic NFT with metadata and images
-
-//-Burn 5 NFTs
-//-Mint 1 generic NFT with metadata + image
-
-//should be able to generate image from input metadata or provided images
-
-//rule part to titan => merge (merge all input nft into 1 output nft)
-//-merge images to trait data
-//-add all traits to metadata
-
-//rule titan to part => split (1 trait = 1 nft)
-//-for each trait find image in trait data and mint nft
-
-//rule breeding => inherit (each output nft trait is randomly selected from inputs)
-//-for each trait type list options
-//-select a random one on list
-//apply to output nft
-
-//Should be a command to close transformer

@@ -1,18 +1,19 @@
 use anchor_lang::prelude::*;
 
+use crate::InputInfo;
+
 #[account]
 pub struct Transmuter {
     pub seed: u64,
     pub auth_bump: u8,
     pub transmuter_bump: u8,
     pub creator: Pubkey,
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-    pub traits: Vec<String>,
-    pub rules: Vec<String>,
+    pub inputs: String,
+    pub outputs: String,
+    pub traits_uri: String,
 }
 
 //Vector max size?
 impl Transmuter {
-    pub const LEN: usize = 8 + 2 * 1 + 20 * 32;
+    pub const LEN: usize = 8 + 8 + 2 * 1 + 32;
 }

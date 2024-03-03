@@ -1,3 +1,4 @@
+use super::rule::Rule;
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -6,4 +7,9 @@ pub struct InputInfo {
     pub collection: String,
     pub method: String,
     pub token_standard: String,
+    pub rule: Option<Rule>,
+}
+
+impl InputInfo {
+    pub const LEN: usize = 8 + 44 + 8 + 4 + Rule::LEN;
 }

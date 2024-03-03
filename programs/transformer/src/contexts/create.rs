@@ -1,12 +1,12 @@
-use crate::structs::Transmuter;
+use crate::errors::TransmuterError;
+use crate::structs::{InputInfo, OutputInfo, TraitInfo, Transmuter};
+use crate::utils::parse_json;
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token::Token};
 use std::str::FromStr;
 
-use crate::errors::TransmuterError;
-
 #[derive(Accounts)]
-#[instruction(seed: u64)]
+#[instruction(seed: u64, nft_indexer_json: String, input_json: String, output_json: String)]
 pub struct Create<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -21,7 +21,7 @@ pub struct Create<'info> {
         payer = creator,
         seeds = [b"transmuter", creator.key.as_ref(), seed.to_le_bytes().as_ref()],
         bump,
-        space = Transmuter::LEN,
+        space = Transmuter::LEN + parse_json::<InputInfo>(&input_json)?.len() * InputInfo::LEN + parse_json::<OutputInfo>(&output_json)?.len() * OutputInfo::LEN + (220 *3),
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
     pub system_program: Program<'info, System>,

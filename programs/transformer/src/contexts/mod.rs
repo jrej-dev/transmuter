@@ -1,13 +1,15 @@
 pub mod collection;
 pub mod create;
 pub mod input;
+pub mod update;
 pub mod output;
-pub mod transmute;
 pub mod traits;
+pub mod transmute;
 
 pub use collection::*;
 pub use create::*;
 pub use input::*;
+pub use update::*;
 pub use output::*;
-pub use transmute::*;
 pub use traits::*;
+pub use transmute::*;

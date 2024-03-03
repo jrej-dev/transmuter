@@ -13,5 +13,3 @@ pub struct AddOutput<'info> {
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
 }
-
-pub struct ClearOutput {}

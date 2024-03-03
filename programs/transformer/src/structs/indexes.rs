@@ -6,4 +6,5 @@ pub struct Indexes {
     pub metadata: usize,
     pub ata: Option<usize>,
     pub creator_ata: Option<usize>,
+    pub master_edition: Option<usize>,
 }
