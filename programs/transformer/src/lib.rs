@@ -87,7 +87,7 @@ pub mod transformer {
         transmuter.inputs = input_json;
         transmuter.outputs = output_json;
         transmuter.traits_uri = traits_uri;
-        
+
         Ok(())
     }
 
@@ -226,6 +226,7 @@ pub mod transformer {
                                     &mint_info.title,
                                     &mint_info.symbol,
                                     &mint_uri,
+                                    &output_info.collection,
                                     500,
                                     metadata_account,
                                     mint_account,
@@ -235,7 +236,8 @@ pub mod transformer {
                                     mint_account,
                                     metadata_account,
                                 );
-                                &ctx.accounts.update_authority(metadata_account, mint_account);
+                                &ctx.accounts
+                                    .update_authority(metadata_account, mint_account);
 
                                 current_index += 1;
                             }
@@ -279,6 +281,7 @@ pub mod transformer {
                         &mint_info.title,
                         &mint_info.symbol,
                         &uri,
+                        &output_info.collection,
                         500,
                         metadata_account,
                         mint_account,
@@ -294,6 +297,8 @@ pub mod transformer {
                     msg!("Rule not found");
                 }
             } else {
+                //ADD COLLECTION
+
                 msg!("There is no rule");
                 let mint_info = output_info.mint.as_ref().unwrap();
                 &ctx.accounts.mint_token(mint_account, ata_account);
@@ -301,6 +306,7 @@ pub mod transformer {
                     &mint_info.title,
                     &mint_info.symbol,
                     &mint_info.uri,
+                    &output_info.collection,
                     500,
                     metadata_account,
                     mint_account,
@@ -310,7 +316,8 @@ pub mod transformer {
                     mint_account,
                     metadata_account,
                 );
-                &ctx.accounts.update_authority(metadata_account, mint_account);
+                &ctx.accounts
+                    .update_authority(metadata_account, mint_account);
             }
             msg!("END OF LOOP");
         }

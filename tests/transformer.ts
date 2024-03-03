@@ -37,68 +37,76 @@ const storageClient = new NFTStorage({
   token: process.env.NFT_STORAGE_KEY,
 });
 
-// const traits = [
-//   {
-//     name: "NFT part - Background",
-//     trait_type: "Background",
-//     value: "blue",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image:
-//       "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FBlue.webp&w=640&q=75",
-//   },
-//   {
-//     name: "NFT part - Background",
-//     trait_type: "Background",
-//     value: "green",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image:
-//       "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FGreen.webp&w=640&q=75",
-//   },
-//   {
-//     name: "NFT part - Background",
-//     trait_type: "Background",
-//     value: "pink",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image:
-//       "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FPink.webp&w=640&q=75",
-//   },
-//   {
-//     name: "NFT part - Background",
-//     trait_type: "Background",
-//     value: "yellow",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image:
-//       "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FStraw.webp&w=640&q=75",
-//   },
-//   {
-//     name: "NFT part - Outfit",
-//     trait_type: "Outfit",
-//     value: "cope",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image: "https://fff.wtf/_next/OutfitCope",
-//   },
-//   {
-//     name: "NFT part - Outfit",
-//     trait_type: "Outfit",
-//     value: "tracksuit",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
-//     image: "https://fff.wtf/_next/OutfitCope",
-//   },
-//   {
-//     name: "NFT part - Head",
-//     trait_type: "Head",
-//     value: "none",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oe",
-//     image: "https://fff.wtf/_next/HeadNone",
-//   },
-//   {
-//     name: "NFT part - Head",
-//     trait_type: "Head",
-//     value: "halo",
-//     uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oe",
-//     image: "https://fff.wtf/_next/HeadNone",
-//   },
-// ];
+const traits: TraitInfo[] = [
+  {
+    name: "NFT part - Background",
+    description: "NFT part - Background",
+    trait_type: "Background",
+    value: "blue",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image:
+      "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FBlue.webp&w=640&q=75",
+  },
+  {
+    name: "NFT part - Background",
+    description: "NFT part - Background",
+    trait_type: "Background",
+    value: "green",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image:
+      "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FGreen.webp&w=640&q=75",
+  },
+  {
+    name: "NFT part - Background",
+    description: "NFT part - Background",
+    trait_type: "Background",
+    value: "pink",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image:
+      "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FPink.webp&w=640&q=75",
+  },
+  {
+    name: "NFT part - Background",
+    description: "NFT part - Background",
+    trait_type: "Background",
+    value: "yellow",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image:
+      "https://fff.wtf/_next/image?url=%2Ftraits%2FBackground%2FStraw.webp&w=640&q=75",
+  },
+  {
+    name: "NFT part - Outfit",
+    description: "NFT part - Outfit",
+    trait_type: "Outfit",
+    value: "cope",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image: "https://fff.wtf/_next/OutfitCope",
+  },
+  {
+    name: "NFT part - Outfit",
+    description: "NFT part - Outfit",
+    trait_type: "Outfit",
+    value: "tracksuit",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
+    image: "https://fff.wtf/_next/OutfitCope",
+  },
+  {
+    name: "NFT part - Head",
+    description: "NFT part - Head",
+    trait_type: "Head",
+    value: "none",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oe",
+    image: "https://fff.wtf/_next/HeadNone",
+  },
+  {
+    name: "NFT part - Head",
+    description: "NFT part - Head",
+    trait_type: "Head",
+    value: "halo",
+    uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oe",
+    image: "https://fff.wtf/_next/HeadNone",
+  },
+];
 
 describe("transformer", () => {
   // Configure the client to use the local cluster.
@@ -202,7 +210,7 @@ describe("transformer", () => {
       isMutable: true,
     });
 
-    outputCollection = await userMetaplex.nfts().create({
+    outputCollection = await creatorMetaplex.nfts().create({
       name: "Output collection",
       symbol: "OUPT",
       sellerFeeBasisPoints: 500,
@@ -363,12 +371,11 @@ describe("transformer", () => {
     const wba = new PublicKey("3LSY4UTEFt7V7eGsiaAUDzn3iKAJFBPkYseXpdECFknF");
     console.log("wba: ", wba.toBase58());
 
-    // const metadataCid = await storageClient.storeBlob(
-    //   new File([JSON.stringify(traits)], "traits.json")
-    // );
-    // const traitsUri = `https://${metadataCid}.ipfs.nftstorage.link`;
-    const traitsUri =
-      "https://bafkreiaum2ncnoacx6la6o4anebrvgqgsoqymk62md5vw5mbbt2jvhfzfe.ipfs.nftstorage.link";
+    const metadataCid = await storageClient.storeBlob(
+      new File([JSON.stringify(traits)], "traits.json")
+    );
+    const traitsUri = `https://${metadataCid}.ipfs.nftstorage.link`;
+    // const traitsUri = "https://bafkreiaum2ncnoacx6la6o4anebrvgqgsoqymk62md5vw5mbbt2jvhfzfe.ipfs.nftstorage.link";
 
     const tx = await program.methods
       .create(
@@ -699,21 +706,23 @@ describe("transformer", () => {
         console.log(data);
 
         let queryString = new URLSearchParams(nft.uri.split("?")[1]);
-        const layers: string[] = [];
         const attributes: { trait_type: string; value: string }[] = [];
+        const layers: string[] = [];
+
         const transmuterTraits: TraitInfo[] = await axios
           .get(transmuterInfo.traitsUri)
           .then((res) => res.data);
 
         for (let [key, value] of queryString.entries()) {
-          const found: TraitInfo = transmuterTraits.find(
+          const foundTrait = transmuterTraits.find(
             (trait) => trait.trait_type === key && trait.value === value
           );
-          if (found) {
+          if (foundTrait) {
             attributes.push({ trait_type: key, value: value });
-            layers.push(found.image);
+            layers.push(foundTrait.image);
           }
         }
+
         const buffers: Buffer[] = [];
         for (let layer of layers) {
           const response = await axios.get(layer, {
@@ -722,56 +731,71 @@ describe("transformer", () => {
           const buffer = Buffer.from(response.data, "utf-8");
           buffers.push(buffer);
         }
-        let outputBuffer = await sharp(buffers[0])
-          .composite(
-            buffers.map((buffer) => ({
-              input: buffer,
-              tile: true,
-              blend: "over",
-            }))
-          )
-          .toBuffer();
-        const imageCid = await storageClient.storeBlob(
-          new File([outputBuffer], "image.png")
-        );
-        const imageUri = `https://${imageCid}.ipfs.nftstorage.link`;
-        const updatedMetadata = {
-          ...data,
-          attributes,
-          image: imageUri,
-          properties: {
-            files: [
-              {
-                uri: imageUri,
-                type: "image/png",
-              },
-            ],
-          },
-        };
-        const metadataCid = await storageClient.storeBlob(
-          new File([JSON.stringify(updatedMetadata)], "metadata.json")
-        );
-        let uri = `https://${metadataCid}.ipfs.nftstorage.link`;
-        for (let [i, attribute] of Object.entries(attributes)) {
-          const index = parseInt(i);
-          if (index === 0) {
-            uri += "?";
-          }
-          if (attribute) {
-            uri += `${attribute.trait_type}=${attribute.value}`;
-            if (index < attributes.length - 1) {
-              uri += `&`;
+
+        if (buffers[0]) {
+          let outputBuffer = await sharp(buffers[0])
+            .composite(
+              buffers.map((buffer) => ({
+                input: buffer,
+                tile: true,
+                blend: "over",
+              }))
+            )
+            .toBuffer();
+          const imageCid = await storageClient.storeBlob(
+            new File([outputBuffer], "image.png")
+          );
+          const imageUri = `https://${imageCid}.ipfs.nftstorage.link`;
+          const updatedMetadata = {
+            ...data,
+            attributes,
+            image: imageUri,
+            properties: {
+              files: [
+                {
+                  uri: imageUri,
+                  type: "image/png",
+                },
+              ],
+            },
+          };
+          const metadataCid = await storageClient.storeBlob(
+            new File([JSON.stringify(updatedMetadata)], "metadata.json")
+          );
+          let uri = `https://${metadataCid}.ipfs.nftstorage.link`;
+          for (let [i, attribute] of Object.entries(attributes)) {
+            const index = parseInt(i);
+            if (index === 0) {
+              uri += "?";
+            }
+            if (attribute) {
+              uri += `${attribute.trait_type}=${attribute.value}`;
+              if (index < attributes.length - 1) {
+                uri += `&`;
+              }
             }
           }
-        }
 
-        await creatorMetaplex.nfts().update(
-          {
-            nftOrSft: nft,
-            uri,
-          },
-          { commitment: "finalized" }
-        );
+          await creatorMetaplex.nfts().update(
+            {
+              nftOrSft: nft,
+              uri,
+            },
+            { commitment: "finalized" }
+          );
+
+          await creatorMetaplex
+            .nfts()
+            .verifyCreator(
+              { mintAddress: mint, creator },
+              { commitment: "finalized" }
+            );
+
+          await creatorMetaplex.nfts().verifyCollection({
+            mintAddress: mint,
+            collectionMintAddress: nft.collection.address,
+          });
+        }
       }
     }
   });

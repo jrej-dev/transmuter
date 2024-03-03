@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::errors::TransmuterError;
 use crate::structs::Transmuter;
 use anchor_lang::prelude::*;
@@ -10,7 +12,7 @@ use anchor_spl::{
 use mpl_token_metadata::instructions::{
     CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
 };
-use mpl_token_metadata::types::DataV2;
+use mpl_token_metadata::types::{Collection, Creator, DataV2};
 use serde_json::Result as Result_serde;
 
 #[derive(Accounts)]
@@ -74,20 +76,31 @@ impl<'info> Transmute<'info> {
         title: &String,
         symbol: &String,
         uri: &String,
+        collection_mint: &String,
         seller_fee_basis_point: u16,
         metadata: &AccountInfo<'info>,
         mint: &AccountInfo<'info>,
     ) -> Result<()> {
         let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
         let signer_seeds = &[&seeds[..]];
+        let creator = Creator {
+            address: self.creator.key(),
+            verified: false,
+            share: 100,
+        };
+
+        let collection = Collection {
+            key: Pubkey::from_str(collection_mint).unwrap(),
+            verified: false,
+        };
 
         let data: DataV2 = DataV2 {
             name: title.to_string(),
             symbol: symbol.to_string(),
             uri: uri.to_string(),
             seller_fee_basis_points: seller_fee_basis_point,
-            creators: None,
-            collection: None,
+            creators: Some(vec![creator]),
+            collection: Some(collection),
             uses: None,
         };
 
