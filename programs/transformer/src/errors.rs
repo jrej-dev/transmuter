@@ -8,6 +8,8 @@ pub enum TransmuterError {
     AuthBumpError,
     #[msg("Unable to get transmuter bump")]
     TransmuterBumpError,
+    #[msg("Unable to get vault bump")]
+    VaultBumpError,
     #[msg("Unable to parse JSON content")]
     JSONParseError,
     #[msg("Invalid account provided for input")]
@@ -16,7 +18,13 @@ pub enum TransmuterError {
     DuplicateInputAccount,
     #[msg("Invalid NFT owner provided for the transmuter")]
     InvalidNFTOwner,
-    #[msg("Invalid program owner provided for transmuter creation")]
+    #[msg("Invalid NFT owner provided for the transmuter")]
+    InvalidInputLength,
+    #[msg("Transmutation complete")]
+    TransmutationComplete,
+    #[msg("Transmutation incomplete")]
+    TransmutationIncomplete,
+    #[msg("input length provided not matching input required")]
     InvalidProgramOwner,
     #[msg("Rule could not be applied on transmute")]
     RuleNotApplied,

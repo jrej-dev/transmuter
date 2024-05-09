@@ -7,6 +7,7 @@ pub struct Transmuter {
     pub seed: u64,
     pub auth_bump: u8,
     pub transmuter_bump: u8,
+    pub vault_bump: u8,
     pub creator: Pubkey,
     pub inputs: String,
     pub outputs: String,
@@ -15,5 +16,5 @@ pub struct Transmuter {
 
 //Vector max size?
 impl Transmuter {
-    pub const LEN: usize = 8 + 8 + 2 * 1 + 32;
+    pub const LEN: usize = 8 + 8 + 4 * 1 + 32;
 }

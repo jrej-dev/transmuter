@@ -5,6 +5,7 @@ pub mod output;
 pub mod rule;
 pub mod traits;
 pub mod transmuter;
+pub mod vault_auth;
 
 pub use indexes::*;
 pub use input::*;
@@ -13,3 +14,4 @@ pub use output::*;
 pub use rule::*;
 pub use traits::*;
 pub use transmuter::*;
+pub use vault_auth::*;

@@ -5,7 +5,7 @@
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.28.0",
-        "@metaplex-foundation/js": "^0.19.5",
+        "@metaplex-foundation/js": "^0.20.1",
         "@shadow-drive/sdk": "^5.0.0",
         "@solana/spl-token": "^0.3.8",
         "dotenv": "^16.4.2",

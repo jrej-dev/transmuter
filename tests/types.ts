@@ -18,7 +18,6 @@ export type OutputInfo = {
 
 export type TraitInfo = {
   name: string;
-  description: string;
   trait_type: string;
   value: string;
   uri: string;

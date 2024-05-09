@@ -33,10 +33,6 @@ pub struct Create<'info> {
     pub wba: UncheckedAccount<'info>,
 }
 
-pub struct CreateWithMintParams {
-    pub seed: u64,
-}
-
 impl<'info> Create<'info> {
     pub fn pay_fee(&self, to_account: AccountInfo<'info>, lamports: u64) -> Result<()> {
         let ix = anchor_lang::solana_program::system_instruction::transfer(

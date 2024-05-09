@@ -2,7 +2,7 @@
 seeds = false
 skip-lint = false
 [programs.localnet]
-transformer = "GTyWp6xRHsSC8QXFYTifGResqVRLt9iGjsifSxNswJtA"
+transformer = "H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf"
 
 [registry]
 url = "https://api.apr.dev"
@@ -13,3 +13,7 @@ wallet = "/home/jrej/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[[test.genesis]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+program = "clones/metaplex.so"
