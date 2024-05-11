@@ -24,8 +24,7 @@ pub struct ResolveInput<'info> {
     #[account(mut)]
     pub creator_ata: Account<'info, TokenAccount>,
     #[account(mut)]
-    //TODO fix this
-    /// CHECK: This is not dangerous because this account doesn't exist
+    /// CHECK: fix later
     pub metadata: UncheckedAccount<'info>,
     #[account(
         mut,
@@ -43,58 +42,4 @@ pub struct ResolveInput<'info> {
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-}
-
-impl<'info> ResolveInput<'info> {
-    pub fn is_matching(&self, input_info: &InputInfo) -> Result<bool> {
-        // THIS IS REPEATED MAYBE MERGE BOTH MATCH FUNCTIONS
-        let mut is_match = false;
-
-        match input_info.token_standard.as_str() {
-            "nft" => {
-                let input_metadata: Metadata =
-                    Metadata::try_from(&self.metadata.to_account_info())?;
-                let collection_pubkey = input_metadata.collection.unwrap().key;
-
-                is_match = collection_pubkey.to_string() == input_info.collection;
-
-                if is_match {
-                    if input_info.rule.is_some() {
-                        is_match = false;
-
-                        msg!("There is an input rule");
-                        let rule = input_info.rule.as_ref().unwrap();
-                        msg!("rule.name: {:?}", rule.name);
-
-                        if rule.name == "traits" {
-                            msg!("Traits rule");
-
-                            msg!("metadata uri, {}", &input_metadata.uri);
-                            let parsed_url = Url::parse(&input_metadata.uri).unwrap();
-                            msg!("parsed_url works: {:?}", parsed_url);
-
-                            let hash_query: Vec<_> =
-                                parsed_url.query_pairs().into_owned().collect();
-
-                            //verify NFT traits
-                            is_match = rule.trait_types.clone().into_iter().all(
-                                |(trait_key, trait_value)| {
-                                    hash_query.clone().into_iter().any(|(key, value)| {
-                                        &trait_key == &key
-                                            && (&trait_value == &value
-                                                || &trait_value == &String::from("*"))
-                                    })
-                                },
-                            );
-                        }
-                    } else {
-                        msg!("No rules found");
-                    }
-                }
-            }
-            _ => msg!("Token standard not found"),
-        };
-
-        Ok(is_match)
-    }
 }

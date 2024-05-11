@@ -4,11 +4,11 @@ use crate::InputInfo;
 
 #[account]
 pub struct Transmuter {
+    pub creator: Pubkey,
     pub seed: u64,
     pub auth_bump: u8,
     pub transmuter_bump: u8,
     pub vault_bump: u8,
-    pub creator: Pubkey,
     pub inputs: String,
     pub outputs: String,
     pub traits_uri: String,

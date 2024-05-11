@@ -10,6 +10,7 @@ use anchor_spl::{
     token::{mint_to, set_authority, Mint, MintTo, SetAuthority, Token, TokenAccount},
 };
 
+use mpl_token_metadata::accounts::Metadata;
 use mpl_token_metadata::instructions::{
     CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
 };

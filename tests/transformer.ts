@@ -16,7 +16,11 @@ import {
   TOKEN_PROGRAM_ID as tokenProgram,
 } from "@solana/spl-token";
 import {
+  FindNftsByOwnerOutput,
+  Metadata,
   Metaplex,
+  Nft,
+  Sft,
   keypairIdentity,
   mockStorage,
 } from "@metaplex-foundation/js";
@@ -28,6 +32,14 @@ require("dotenv").config({ path: ".env" });
 import { InputInfo, OutputInfo, TraitInfo } from "./types";
 import { traits } from "./data";
 import assert from "assert";
+import {
+  getMasterEdition,
+  getMetadata,
+  getProgramAuthority,
+  getTransmuterStructs,
+  getvaultAuthStructs,
+} from "./fetchers";
+import { getInputMatch } from "./matcher";
 
 const commitment: Commitment = "confirmed";
 
@@ -332,7 +344,7 @@ describe("transformer", () => {
           {
             token_standard: "nft",
             collection: inputCollection.nft.address.toBase58(),
-            method: "burn",
+            method: "transfer",
             amount: 1,
           },
         ]),
@@ -415,7 +427,14 @@ describe("transformer", () => {
   )[0];
   console.log(`vaultAuth: ${vaultAuth.toBase58()}`);
 
+  it("checks one transmuter has been created", async () => {
+    const transmuters = await getTransmuterStructs(program, creator.publicKey);
+    assert.equal(transmuters.length, 1);
+  });
+
   it("handles input", async () => {
+    //Find transmuter with creator + seed
+
     const ata = await getOrCreateAssociatedTokenAccount(
       anchor.getProvider().connection,
       user,
@@ -601,260 +620,135 @@ describe("transformer", () => {
     console.log(tx);
   });
 
-  //How a creator can list his transmuters
-  //How a creator can list completed vaultAuths
-  //Find the inputMint from vaultAuth nfts
-
-  //need a bookkeeping pda per creator to find all their transmuters
-  //need a bookkeeping pda per transmute to find all the vaultAuth
-  //find the nfts in the vaultAuth
+  //need a bookkeeping pda per transmute to find all the user and vault seed
 
   it("resolves an input", async () => {
-    //creator ATA not used on burn
-    //if all inputs are burn => use different method?
-    const creatorAta = await getOrCreateAssociatedTokenAccount(
-      anchor.getProvider().connection,
-      creator,
-      inputMints[0].nft.address,
-      creator.publicKey,
-      true
+    // TRANSMUTER
+    const transmuterStructs = await getTransmuterStructs(
+      program,
+      creator.publicKey
+    );
+    // PDA for the first transmuter
+    const transmuter = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("transmuter"),
+        creator.publicKey.toBytes(),
+        transmuterStructs[0].account.seed.toBuffer().reverse(),
+      ],
+      program.programId
+    )[0];
+
+    // VAULTAUTH
+    const vaultAuthStructs = await getvaultAuthStructs(
+      program,
+      transmuter,
+      false
+    );
+    // PDA for the first vaultAuth
+    const vaultAuth = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("vaultAuth"),
+        vaultAuthStructs[0].account.transmuter.toBytes(),
+        vaultAuthStructs[0].account.user.toBytes(),
+        vaultAuthStructs[0].account.seed.toBuffer().reverse(),
+      ],
+      program.programId
+    )[0];
+
+    //Nfts from vaultAuth
+    const vaultAuthNfts = (await creatorMetaplex
+      .nfts()
+      .findAllByOwner({ owner: vaultAuth })) as Metadata[];
+
+    // find the inputInfo from mintAddress
+    
+    const inputInfo = await getInputMatch(
+      program,
+      transmuter,
+      vaultAuth,
+      vaultAuthNfts[0]
     );
 
     const vault = await getOrCreateAssociatedTokenAccount(
       anchor.getProvider().connection,
-      user,
-      inputMints[0].nft.address,
+      creator,
+      vaultAuthNfts[0].mintAddress,
       vaultAuth,
       true
     );
 
-    const metadata = await getMetadata(inputMints[0].nft.address);
+    const metadata = await getMetadata(vaultAuthNfts[0].mintAddress);
+    
+    if (inputInfo) {
+      switch (inputInfo.method) {
+        case "burn":
+          {
+            const tx = await program.methods
+              .burnInput(
+                transmuterStructs[0].account.seed,
+                vaultAuthStructs[0].account.seed
+              )
+              .accounts({
+                creator: creator.publicKey,
+                user: user.publicKey,
+                mint: vaultAuthNfts[0].mintAddress,
+                metadata: metadata,
+                vaultAuth: vaultAuth,
+                vault: vault.address,
+                tokenProgram,
+                transmuter,
+                systemProgram: SystemProgram.programId,
+              })
+              .signers([creator])
+              .rpc({
+                skipPreflight: true,
+              });
 
-    const tx = await program.methods
-      .resolveInput(seed, vaultSeed)
-      .accounts({
-        creator: creator.publicKey,
-        user: user.publicKey,
-        mint: inputMints[0].nft.address,
-        creatorAta: creatorAta.address,
-        metadata: metadata,
-        vaultAuth: vaultAuth,
-        vault: vault.address,
-        tokenProgram,
-        transmuter,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([creator])
-      .rpc({
-        skipPreflight: true,
-      });
+            console.log("Burn done");
+            console.log(tx);
+          }
+          break;
+        case "transfer":
+          {
+            const creatorAta = await getOrCreateAssociatedTokenAccount(
+              anchor.getProvider().connection,
+              creator,
+              vaultAuthNfts[0].mintAddress,
+              creator.publicKey,
+              true
+            );
 
-    console.log("DONE");
-    console.log(tx);
+            const tx = await program.methods
+              .resolveInput(
+                transmuterStructs[0].account.seed,
+                vaultAuthStructs[0].account.seed
+              )
+              .accounts({
+                creator: creator.publicKey,
+                user: user.publicKey,
+                mint: vaultAuthNfts[0].mintAddress,
+                creatorAta: creatorAta.address,
+                metadata: metadata,
+                vaultAuth: vaultAuth,
+                vault: vault.address,
+                tokenProgram,
+                transmuter,
+                systemProgram: SystemProgram.programId,
+              })
+              .signers([creator])
+              .rpc({
+                skipPreflight: true,
+              });
+
+            console.log("Transfer done");
+            console.log(tx);
+          }
+          break;
+        default:
+          console.log("Method not found");
+      }
+    }
   });
-
-  // it("Transmute", async () => {
-  //   const transmuterInfo = await program.account.transmuter.fetch(transmuter);
-  //   let transmuterInputs = JSON.parse(transmuterInfo.inputs) as InputInfo[];
-  //   let transmuterOutputs = JSON.parse(transmuterInfo.outputs) as OutputInfo[];
-
-  //   const handleOutputs = async (output: OutputInfo) => {
-  //     for (let i = 0; i < output.amount; i++) {
-  //       let mint = await createMint(
-  //         anchor.getProvider().connection,
-  //         user,
-  //         auth,
-  //         auth,
-  //         0
-  //       );
-  //       let indexes: { [key: string]: number } = {
-  //         mint: 0,
-  //         metadata: 0,
-  //         ata: 0,
-  //         creator_ata: 0,
-  //       };
-
-  //       //Add mint
-  //       console.log("Add mint");
-  //       indexes.mint = remainingAccounts.length;
-  //       remainingAccounts.push({
-  //         isSigner: false,
-  //         isWritable: true,
-  //         pubkey: mint,
-  //       });
-
-  //       //Add metadata
-  //       console.log("Add metadata");
-  //       const metadata = await getMetadata(mint);
-  //       indexes.metadata = remainingAccounts.length;
-  //       remainingAccounts.push({
-  //         isSigner: false,
-  //         isWritable: true,
-  //         pubkey: metadata,
-  //       });
-
-  //       //Add ata
-  //       console.log("Add ata");
-  //       const ata = await getOrCreateAssociatedTokenAccount(
-  //         anchor.getProvider().connection,
-  //         user,
-  //         mint,
-  //         user.publicKey,
-  //         true
-  //       );
-
-  //       indexes.ata = remainingAccounts.length;
-  //       remainingAccounts.push({
-  //         isSigner: false,
-  //         isWritable: true,
-  //         pubkey: ata.address,
-  //       });
-
-  //       //Add owner ata
-  //       console.log("Add owner ata");
-  //       const creatorAta = await getOrCreateAssociatedTokenAccount(
-  //         anchor.getProvider().connection,
-  //         user,
-  //         mint,
-  //         creator.publicKey,
-  //         true
-  //       );
-  //       indexes.creator_ata = remainingAccounts.length;
-  //       remainingAccounts.push({
-  //         isSigner: false,
-  //         isWritable: true,
-  //         pubkey: creatorAta.address,
-  //       });
-
-  //       //Add MasterEdition
-  //       console.log("Add MasterEdition");
-  //       const masterEdition = await getMasterEdition(mint);
-  //       indexes.master_edition = remainingAccounts.length;
-  //       remainingAccounts.push({
-  //         isSigner: false,
-  //         isWritable: true,
-  //         pubkey: masterEdition,
-  //       });
-
-  //       remainingAccountsOutputIndexer.push(indexes);
-  //     }
-  //   };
-
-  //   for (let [index, input] of Object.entries(transmuterInputs)) {
-  //     switch (input.token_standard) {
-  //       case "nft":
-  //         let indexes: { [key: string]: number } = {
-  //           mint: 0,
-  //           metadata: 0,
-  //           ata: 0,
-  //           creator_ata: 0,
-  //         };
-
-  //         //Add mint
-  //         indexes.mint = remainingAccounts.length;
-  //         remainingAccounts.push({
-  //           isSigner: false,
-  //           isWritable: true,
-  //           pubkey: inputMints[index].nft.address,
-  //         });
-  //         //Add metadata
-  //         const metadata = await getMetadata(inputMints[index].nft.address);
-  //         indexes.metadata = remainingAccounts.length;
-  //         remainingAccounts.push({
-  //           isSigner: false,
-  //           isWritable: true,
-  //           pubkey: metadata,
-  //         });
-  //         //Add ata
-  //         const ata = await getOrCreateAssociatedTokenAccount(
-  //           anchor.getProvider().connection,
-  //           user,
-  //           inputMints[index].nft.address,
-  //           user.publicKey,
-  //           true
-  //         );
-  //         indexes.ata = remainingAccounts.length;
-  //         remainingAccounts.push({
-  //           isSigner: false,
-  //           isWritable: true,
-  //           pubkey: ata.address,
-  //         });
-  //         if (input.method === "transfer") {
-  //           //Add owner ata
-  //           const creatorAta = await getOrCreateAssociatedTokenAccount(
-  //             anchor.getProvider().connection,
-  //             user,
-  //             inputMints[index].nft.address,
-  //             creator2.publicKey,
-  //             true
-  //           );
-  //           indexes.creator_ata = remainingAccounts.length;
-  //           remainingAccounts.push({
-  //             isSigner: false,
-  //             isWritable: true,
-  //             pubkey: creatorAta.address,
-  //           });
-  //         }
-  //         remainingAccountsInputIndexer.push(indexes);
-  //         break;
-  //       default:
-  //         remainingAccountsInputIndexer.push({});
-  //     }
-  //   }
-
-  //   for (let [_, output] of Object.entries(transmuterOutputs)) {
-  //     switch (output.token_standard) {
-  //       case "nft":
-  //         if (output.rule?.name === "split") {
-  //           for (let _ of Object.entries(transmuterInputs)) {
-  //             await handleOutputs(output);
-  //           }
-  //         } else {
-  //           await handleOutputs(output);
-  //         }
-  //         break;
-  //       default:
-  //         remainingAccountsOutputIndexer.push({});
-  //     }
-  //   }
-
-  //   const modifyComputeUnits =
-  //     anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
-  //       units: 1000000,
-  //     });
-
-  //   const addPriorityFee = anchor.web3.ComputeBudgetProgram.setComputeUnitPrice(
-  //     {
-  //       microLamports: 1,
-  //     }
-  //   );
-
-  //   const tx = await program.methods
-  //     .transmute(
-  //       seed,
-  //       JSON.stringify(remainingAccountsInputIndexer),
-  //       JSON.stringify(remainingAccountsOutputIndexer)
-  //     )
-  //     .accounts({
-  //       creator: creator.publicKey,
-  //       user: user.publicKey,
-  //       auth,
-  //       transmuter,
-  //       tokenProgram,
-  //       associatedTokenProgram,
-  //       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-  //       systemProgram: SystemProgram.programId,
-  //       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-  //       sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-  //     })
-  //     .preInstructions([modifyComputeUnits, addPriorityFee])
-  //     .remainingAccounts(remainingAccounts)
-  //     .signers([user])
-  //     .rpc({
-  //       skipPreflight: true,
-  //     });
-  //   console.log(tx);
-  // });
 
   // it("Updates output uri", async () => {
   //   //should be done via server callback
@@ -989,43 +883,6 @@ const confirmTx = async (signature: string) => {
 
 const confirmTxs = async (signatures: string[]) => {
   await Promise.all(signatures.map(confirmTx));
-};
-
-const getMetadata = async (
-  mint: anchor.web3.PublicKey
-): Promise<anchor.web3.PublicKey> => {
-  return anchor.web3.PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("metadata"),
-      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-      mint.toBuffer(),
-    ],
-    TOKEN_METADATA_PROGRAM_ID
-  )[0];
-};
-
-const getMasterEdition = async (
-  mint: anchor.web3.PublicKey
-): Promise<anchor.web3.PublicKey> => {
-  return anchor.web3.PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("metadata"),
-      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-      mint.toBuffer(),
-      Buffer.from("edition"),
-    ],
-    TOKEN_METADATA_PROGRAM_ID
-  )[0];
-};
-
-const getProgramAuthority = async (
-  c: Connection,
-  programId: PublicKey
-): Promise<PublicKey> => {
-  const info = await c.getAccountInfo(programId, { commitment: "confirmed" });
-  const dataAddress = new PublicKey(info.data.subarray(4));
-  const dataAcc = await c.getAccountInfo(dataAddress);
-  return new PublicKey(dataAcc.data.subarray(13, 45));
 };
 
 //solana-test-validator -r --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s clones/metaplex.so

@@ -14,15 +14,13 @@ use url::Url;
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct SendInput<'info> {
+pub struct BurnInput<'info> {
     #[account(mut)]
-    pub creator: SystemAccount<'info>,
+    pub creator: Signer<'info>,
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub user: SystemAccount<'info>,
     #[account(mut)]
     pub mint: Box<Account<'info, Mint>>,
-    #[account(mut)]
-    pub ata: Account<'info, TokenAccount>,
     #[account(mut)]
     /// CHECK: fix later
     pub metadata: UncheckedAccount<'info>,
@@ -33,11 +31,9 @@ pub struct SendInput<'info> {
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
     #[account(
-        init_if_needed,
-        payer = user,
+        mut,
         seeds = [b"vaultAuth", transmuter.key().as_ref(), user.key.as_ref(), vault_seed.to_le_bytes().as_ref()],
-        bump,
-        space = 10000,
+        bump = vault_auth.vault_auth_bump,
     )]
     pub vault_auth: Box<Account<'info, VaultAuth>>,
     #[account(mut)]

@@ -106,12 +106,8 @@ pub mod transformer {
 
         ctx.accounts.vault_auth.vault_auth_bump = ctx.bumps.vault_auth;
         let vault_auth = &ctx.accounts.vault_auth;
-        // // Init on first input
-        // let is_first_input = vault_auth.handled_input_indexes.len() == 0;
-        // if is_first_input {
-        //     ctx.accounts.vault_auth.user_lock = false;
-        //     ctx.accounts.vault_auth.creator_lock = true;
-        // }
+
+        require!(!vault_auth.user_lock, TransmuterError::UserLock);
 
         //Find an input_info match
         let mut is_match = false;
@@ -121,19 +117,26 @@ pub mod transformer {
                 continue;
             }
 
-            is_match = ctx.accounts.is_matching(&transmuter_inputs[index])?;
+
+            is_match = is_matching(
+                &ctx.accounts.metadata.to_account_info(),
+                &transmuter_inputs[index],
+            )?;
 
             if is_match {
                 let is_first_match = vault_auth.handled_input_indexes.len() == 0;
                 if is_first_match {
+                    ctx.accounts.vault_auth.transmuter = transmuter.key();
+                    ctx.accounts.vault_auth.user = ctx.accounts.user.key();
+                    ctx.accounts.vault_auth.seed = vault_seed;
                     ctx.accounts.vault_auth.user_lock = false;
                     ctx.accounts.vault_auth.creator_lock = true;
                 }
 
                 ctx.accounts
-                    .vault_auth
-                    .handled_input_indexes
-                    .push(index as u8);
+                .vault_auth
+                .handled_input_indexes
+                .push(index as u8);
 
                 break;
             }
@@ -162,7 +165,7 @@ pub mod transformer {
     pub fn claim_output<'info>(
         ctx: Context<'_, '_, '_, 'info, ClaimOutput<'info>>,
         seed: u64,
-        vault_seed: u64
+        vault_seed: u64,
     ) -> Result<()> {
         msg!("TRANSMUTE");
         let transmuter = &ctx.accounts.transmuter;
@@ -341,7 +344,83 @@ pub mod transformer {
         Ok(())
     }
 
-    pub fn resolve_input<'info>(ctx: Context<ResolveInput>, seed: u64, vault_seed: u64) -> Result<()> {
+    pub fn resolve_input<'info>(
+        ctx: Context<ResolveInput>,
+        seed: u64,
+        vault_seed: u64,
+    ) -> Result<()> {
+        let transmuter = &ctx.accounts.transmuter;
+        let transmuter_inputs = parse_json::<InputInfo>(&transmuter.inputs)?;
+
+        let vault_auth = &ctx.accounts.vault_auth;
+
+        require!(
+            !vault_auth.creator_lock,
+            TransmuterError::TransmutationIncomplete
+        );
+
+        //Find an input_info match
+        let mut input_info_option: Option<&InputInfo> = None;
+
+        for index in 0..transmuter_inputs.len() {
+            if !vault_auth.handled_input_indexes.contains(&(index as u8)) {
+                msg!("Index {:?} does not exist in vault_auth", index);
+                continue;
+            }
+
+            let is_match = is_matching(
+                &ctx.accounts.metadata.to_account_info(),
+                &transmuter_inputs[index],
+            )?;
+
+            if is_match {
+                input_info_option = Some(&transmuter_inputs[index]);
+                break;
+            }
+        }
+
+        require!(
+            !input_info_option.is_none(),
+            TransmuterError::InvalidInputAccount
+        );
+
+        let input_info = input_info_option.unwrap();
+
+        require!(
+            input_info.method.as_str() == "transfer",
+            TransmuterError::InvalidInputAccount
+        );
+
+        let vault_seed_bytes = vault_seed.to_le_bytes();
+        let seeds = &[
+            b"vaultAuth",
+            ctx.accounts.transmuter.to_account_info().key.as_ref(),
+            ctx.accounts.user.to_account_info().key.as_ref(),
+            &vault_seed_bytes.as_ref(),
+            &[vault_auth.vault_auth_bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.creator_ata.to_account_info(),
+            authority: ctx.accounts.vault_auth.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        transfer(
+            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
+            1,
+        )?;
+
+        // vault_auth
+        //     .handled_input_indexes
+        //     .remove(handled_input_index.unwrap());
+
+        Ok(())
+    }
+
+    pub fn burn_input<'info>(ctx: Context<BurnInput>, seed: u64, vault_seed: u64) -> Result<()> {
         //CREATOR function
         let transmuter = &ctx.accounts.transmuter;
         let transmuter_inputs = parse_json::<InputInfo>(&transmuter.inputs)?;
@@ -354,7 +433,6 @@ pub mod transformer {
         );
 
         //Find an input_info match
-        let mut handled_input_index: Option<usize> = None;
         let mut input_info_option: Option<&InputInfo> = None;
 
         for index in 0..transmuter_inputs.len() {
@@ -363,17 +441,13 @@ pub mod transformer {
                 continue;
             }
 
-            let is_match = ctx.accounts.is_matching(&transmuter_inputs[index])?;
+            let is_match = is_matching(
+                &ctx.accounts.metadata.to_account_info(),
+                &transmuter_inputs[index],
+            )?;
 
             if is_match {
                 input_info_option = Some(&transmuter_inputs[index]);
-                handled_input_index = Some(
-                    vault_auth
-                        .handled_input_indexes
-                        .iter()
-                        .position(|x| *x == index as u8)
-                        .unwrap(),
-                );
                 break;
             }
         }
@@ -382,13 +456,14 @@ pub mod transformer {
             !input_info_option.is_none(),
             TransmuterError::InvalidInputAccount
         );
+
+        let input_info = input_info_option.unwrap();
+
         require!(
-            !handled_input_index.is_none(),
+            input_info.method.as_str() == "burn",
             TransmuterError::InvalidInputAccount
         );
 
-        let input_info = input_info_option.unwrap();
-        
         let vault_seed_bytes = vault_seed.to_le_bytes();
         let seeds = &[
             b"vaultAuth",
@@ -399,32 +474,19 @@ pub mod transformer {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        if input_info.method.as_str() == "transfer" {
-            let cpi_accounts = Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.creator_ata.to_account_info(),
-                authority: ctx.accounts.vault_auth.to_account_info(),
-            };
+        let cpi_accounts = Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.vault.to_account_info(),
+            authority: ctx.accounts.vault_auth.to_account_info(),
+        };
 
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-            transfer(
-                CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-                1,
-            )?;
-        } else if input_info.method.as_str() == "burn" {
-            let cpi_accounts = Burn {
-                mint: ctx.accounts.mint.to_account_info(),
-                from: ctx.accounts.vault.to_account_info(),
-                authority: ctx.accounts.vault_auth.to_account_info(),
-            };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        burn(
+            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
+            1,
+        )?;
 
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-            burn(
-                CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-                1,
-            )?;
-        }
-
+        // TODO fix
         // vault_auth
         //     .handled_input_indexes
         //     .remove(handled_input_index.unwrap());
