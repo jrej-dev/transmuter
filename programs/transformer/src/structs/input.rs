@@ -1,5 +1,5 @@
 use super::rule::Rule;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct InputInfo {

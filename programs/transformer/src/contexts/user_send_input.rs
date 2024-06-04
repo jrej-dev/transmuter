@@ -1,26 +1,19 @@
-use crate::errors::TransmuterError;
-use crate::structs::{InputInfo, OutputInfo, TraitInfo, Transmuter};
-use crate::utils::parse_json;
+use crate::structs::Transmuter;
 use crate::VaultAuth;
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{transfer, Mint, Token, TokenAccount, Transfer},
-};
-use mpl_token_metadata::accounts::Metadata;
-
-use std::str::FromStr;
-use url::Url;
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct BurnInput<'info> {
+pub struct UserSendInput<'info> {
     #[account(mut)]
-    pub creator: Signer<'info>,
+    pub creator: SystemAccount<'info>,
     #[account(mut)]
-    pub user: SystemAccount<'info>,
+    pub user: Signer<'info>,
     #[account(mut)]
     pub mint: Box<Account<'info, Mint>>,
+    #[account(mut)]
+    pub ata: Account<'info, TokenAccount>,
     #[account(mut)]
     /// CHECK: fix later
     pub metadata: UncheckedAccount<'info>,
@@ -31,9 +24,11 @@ pub struct BurnInput<'info> {
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
     #[account(
-        mut,
+        init_if_needed,
+        payer = user,
         seeds = [b"vaultAuth", transmuter.key().as_ref(), user.key.as_ref(), vault_seed.to_le_bytes().as_ref()],
-        bump = vault_auth.vault_auth_bump,
+        bump,
+        space = 10000,
     )]
     pub vault_auth: Box<Account<'info, VaultAuth>>,
     #[account(mut)]

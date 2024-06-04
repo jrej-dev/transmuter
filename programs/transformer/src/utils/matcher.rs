@@ -4,20 +4,14 @@ use url::Url;
 
 use crate::InputInfo;
 
-pub fn is_matching<'info>(
-    metadata: &AccountInfo<'info>,
-    input_info: &InputInfo,
-) -> Result<bool> {
+pub fn is_matching<'info>(metadata: &AccountInfo<'info>, input_info: &InputInfo) -> Result<bool> {
     msg!("in is MATCHING");
     let mut is_match = false;
 
     match input_info.token_standard.as_str() {
         "nft" => {
-            msg!("0000000000test00000000");
-
             let input_metadata: Metadata = Metadata::try_from(metadata)?;
             let collection_pubkey = input_metadata.collection.unwrap().key;
-            msg!("1111111111111111111");
 
             is_match = collection_pubkey.to_string() == input_info.collection;
 
@@ -31,25 +25,25 @@ pub fn is_matching<'info>(
 
                     if rule.name == "traits" {
                         msg!("Traits rule");
+                        if rule.rule_type == "match" {
+                            msg!("metadata uri, {}", &input_metadata.uri);
+                            let parsed_url = Url::parse(&input_metadata.uri).unwrap();
+                            msg!("parsed_url works: {:?}", parsed_url);
 
-                        msg!("metadata uri, {}", &input_metadata.uri);
-                        let parsed_url = Url::parse(&input_metadata.uri).unwrap();
-                        msg!("parsed_url works: {:?}", parsed_url);
+                            let hash_query: Vec<_> =
+                                parsed_url.query_pairs().into_owned().collect();
 
-                        let hash_query: Vec<_> = parsed_url.query_pairs().into_owned().collect();
-
-                        //verify NFT traits
-                        is_match =
-                            rule.trait_types
-                                .clone()
-                                .into_iter()
-                                .all(|(trait_key, trait_value)| {
+                            //verify NFT traits
+                            is_match = rule.trait_types.clone().into_iter().all(
+                                |(trait_key, trait_value)| {
                                     hash_query.clone().into_iter().any(|(key, value)| {
                                         &trait_key == &key
                                             && (&trait_value == &value
                                                 || &trait_value == &String::from("*"))
                                     })
-                                });
+                                },
+                            );
+                        }
                     }
                 } else {
                     msg!("No rules found");

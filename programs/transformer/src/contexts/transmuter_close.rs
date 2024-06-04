@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct Close<'info> {
+pub struct TransmuterClose<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
 }

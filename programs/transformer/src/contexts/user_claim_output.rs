@@ -1,42 +1,38 @@
 use std::str::FromStr;
 
-use crate::errors::TransmuterError;
 use crate::structs::Transmuter;
 use crate::VaultAuth;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::{invoke, invoke_signed};
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{mint_to, set_authority, Mint, MintTo, SetAuthority, Token, TokenAccount},
+    token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
 
-use mpl_token_metadata::accounts::Metadata;
 use mpl_token_metadata::instructions::{
     CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
+    VerifyCreatorV1CpiBuilder,
 };
 use mpl_token_metadata::types::{Collection, Creator, DataV2};
 
-use serde_json::Result as Result_serde;
-
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct ClaimOutput<'info> {
+pub struct UserClaimOutput<'info> {
     #[account(mut)]
     pub creator: SystemAccount<'info>,
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(
-        seeds = [b"auth"],
-        bump = transmuter.auth_bump
-    )]
-    /// CHECK: This is not dangerous because this account doesn't exist
-    pub auth: UncheckedAccount<'info>,
     #[account(
         mut,
         seeds = [b"transmuter", creator.key.as_ref(), seed.to_le_bytes().as_ref()],
         bump = transmuter.transmuter_bump,
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
+    #[account(
+        seeds = [b"auth", transmuter.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is not dangerous because this account doesn't exist
+    pub auth: UncheckedAccount<'info>,
     #[account(
         mut,
         seeds = [b"vaultAuth", transmuter.key().as_ref(), user.key.as_ref(), vault_seed.to_le_bytes().as_ref()],
@@ -64,9 +60,13 @@ pub struct ClaimOutput<'info> {
     pub sysvar_instructions: AccountInfo<'info>,
 }
 
-impl<'info> ClaimOutput<'info> {
+impl<'info> UserClaimOutput<'info> {
     pub fn mint_token(&self) -> Result<()> {
-        let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
+        let seeds = &[
+            &b"auth"[..],
+            &self.transmuter.key().to_bytes()[..],
+            &[self.transmuter.auth_bump],
+        ];
         let signer_seeds = &[&seeds[..]];
 
         let cpi_accounts = MintTo {
@@ -81,7 +81,7 @@ impl<'info> ClaimOutput<'info> {
             signer_seeds,
         );
 
-        mint_to(mint_ctx, 1);
+        let _ = mint_to(mint_ctx, 1);
         Ok(())
     }
 
@@ -93,8 +93,17 @@ impl<'info> ClaimOutput<'info> {
         collection_mint: &String,
         seller_fee_basis_point: u16,
     ) -> Result<()> {
-        let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
+        let seeds = &[
+            &b"auth"[..],
+            &self.transmuter.key().to_bytes()[..],
+            &[self.transmuter.auth_bump],
+        ];
         let signer_seeds = &[&seeds[..]];
+        let auth_creator = Creator {
+            address: self.auth.key(),
+            verified: false,
+            share: 0,
+        };
         let creator = Creator {
             address: self.creator.key(),
             verified: false,
@@ -111,12 +120,12 @@ impl<'info> ClaimOutput<'info> {
             symbol: symbol.to_string(),
             uri: uri.to_string(),
             seller_fee_basis_points: seller_fee_basis_point,
-            creators: Some(vec![creator]),
+            creators: Some(vec![auth_creator, creator]),
             collection: Some(collection),
             uses: None,
         };
 
-        CreateMetadataAccountV3CpiBuilder::new(&self.token_metadata_program)
+        let _ = CreateMetadataAccountV3CpiBuilder::new(&self.token_metadata_program)
             .metadata(&self.metadata.to_account_info())
             .mint(&self.mint.to_account_info())
             .mint_authority(&self.auth.to_account_info())
@@ -128,14 +137,26 @@ impl<'info> ClaimOutput<'info> {
             .is_mutable(true)
             .invoke_signed(signer_seeds);
 
+        let __ = VerifyCreatorV1CpiBuilder::new(&self.token_metadata_program)
+            .authority(&self.auth.to_account_info())
+            .metadata(&self.metadata.to_account_info())
+            .system_program(&self.system_program)
+            .sysvar_instructions(&self.sysvar_instructions.to_account_info())
+            .add_remaining_account(&self.token_metadata_program.to_account_info(), false, false)
+            .invoke_signed(signer_seeds);
+
         Ok(())
     }
 
     pub fn create_master_edition(&self) -> Result<()> {
-        let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
+        let seeds = &[
+            &b"auth"[..],
+            &self.transmuter.key().to_bytes()[..],
+            &[self.transmuter.auth_bump],
+        ];
         let signer_seeds = &[&seeds[..]];
 
-        CreateMasterEditionV3CpiBuilder::new(&self.token_metadata_program)
+        let _ = CreateMasterEditionV3CpiBuilder::new(&self.token_metadata_program)
             .edition(&self.master_edition.to_account_info())
             .mint(&self.mint.to_account_info())
             .update_authority(&self.auth.to_account_info())
@@ -152,10 +173,14 @@ impl<'info> ClaimOutput<'info> {
     }
 
     pub fn update_authority(&self) -> Result<()> {
-        let seeds = &[&b"auth"[..], &[self.transmuter.auth_bump]];
+        let seeds = &[
+            &b"auth"[..],
+            &self.transmuter.key().to_bytes()[..],
+            &[self.transmuter.auth_bump],
+        ];
         let signer_seeds = &[&seeds[..]];
 
-        UpdateV1CpiBuilder::new(&self.token_program.to_account_info())
+        let _ = UpdateV1CpiBuilder::new(&self.token_program.to_account_info())
             .authority(&self.auth.to_account_info())
             .mint(&self.mint.to_account_info())
             .metadata(&self.metadata.to_account_info())

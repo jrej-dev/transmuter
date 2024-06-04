@@ -1,20 +1,11 @@
-use crate::errors::TransmuterError;
-use crate::structs::{InputInfo, OutputInfo, TraitInfo, Transmuter};
-use crate::utils::parse_json;
+use crate::structs::Transmuter;
 use crate::VaultAuth;
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{transfer, Mint, Token, TokenAccount, Transfer},
-};
-use mpl_token_metadata::accounts::Metadata;
-
-use std::str::FromStr;
-use url::Url;
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct ResolveInput<'info> {
+pub struct CreatorResolveInput<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
     #[account(mut)]

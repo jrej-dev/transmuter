@@ -1,4 +1,4 @@
-import { TraitInfo } from "./types";
+import { TraitInfo } from "./utils/types";
 
 export const traits: TraitInfo[] = [
   {

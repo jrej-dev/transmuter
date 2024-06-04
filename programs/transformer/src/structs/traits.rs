@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct TraitInfo {
@@ -9,6 +9,6 @@ pub struct TraitInfo {
     pub image: String,
 }
 
-impl TraitInfo {
-    pub const LEN: usize = 8 + 16 + 16 + 64 + 16 + 100;
-}
+// impl TraitInfo {
+//     pub const LEN: usize = 8 + 16 + 16 + 64 + 16 + 100;
+// }
