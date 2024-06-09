@@ -25,7 +25,13 @@ declare_id!("H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf");
 pub mod transformer {
     use super::*;
 
-    // Creator methods
+    // TODO:
+    // add transmuter mint supply
+    // update transmuter
+    // update input
+    // update output
+
+    // Transmuter methods
     pub fn transmuter_create(
         ctx: Context<TransmuterCreate>,
         seed: u64,
@@ -126,16 +132,25 @@ pub mod transformer {
         Ok(())
     }
 
+    // pub fn transmuter_pause(_ctx: Context<TransmuterClose>) -> Result<()> {
+    //     // Prevent any new transmutation
+    //     // Allow ongoing ones
+    //     // can be resumed
+    //     Ok(())
+    // }
+
+    // pub fn transmuter_resume(_ctx: Context<TransmuterClose>) -> Result<()> {
+    //     // resume a paused transmuter
+    //     Ok(())
+    // }
+
     pub fn transmuter_close(_ctx: Context<TransmuterClose>) -> Result<()> {
-        // Prevent any new transmutation
-        // Still allow ongoing ones
-        msg!("THIS IS A TEST");
         Ok(())
     }
 
     // User methods
-    pub fn user_send_input<'info>(
-        ctx: Context<UserSendInput>,
+    pub fn user_init_vault_auth<'info>(
+        ctx: Context<UserInitVaultAuth>,
         _seed: u64,
         vault_seed: u64,
     ) -> Result<()> {
@@ -143,31 +158,38 @@ pub mod transformer {
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
 
+        ctx.accounts.vault_auth.vault_auth_bump = ctx.bumps.vault_auth;
+        // Vault auth info
+        ctx.accounts.vault_auth.transmuter = transmuter.key();
+        ctx.accounts.vault_auth.user = ctx.accounts.user.key();
+        ctx.accounts.vault_auth.seed = vault_seed;
+
+        //Init locks
+        ctx.accounts.vault_auth.user_lock = false;
+        ctx.accounts.vault_auth.creator_lock = true;
+
+        //Init trackers
+        ctx.accounts.vault_auth.handled_inputs =
+            (0..transmuter_inputs.len()).map(|_| None).collect();
+        ctx.accounts.vault_auth.input_uris = (0..transmuter_inputs.len()).map(|_| None).collect();
+        ctx.accounts.vault_auth.handled_outputs =
+            (0..transmuter_outputs.len()).map(|_| None).collect();
+
+        Ok(())
+    }
+
+    pub fn user_send_input<'info>(
+        ctx: Context<UserSendInput>,
+        _seed: u64,
+        vault_seed: u64,
+    ) -> Result<()> {
+        let transmuter = &ctx.accounts.transmuter;
+        let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
+
         require!(
             !&ctx.accounts.vault_auth.user_lock,
             TransmuterError::UserLock
         );
-
-        let is_first_match = ctx.accounts.vault_auth.handled_inputs.len() == 0;
-        if is_first_match {
-            ctx.accounts.vault_auth.vault_auth_bump = ctx.bumps.vault_auth;
-            // Vault auth info
-            ctx.accounts.vault_auth.transmuter = transmuter.key();
-            ctx.accounts.vault_auth.user = ctx.accounts.user.key();
-            ctx.accounts.vault_auth.seed = vault_seed;
-
-            //Init locks
-            ctx.accounts.vault_auth.user_lock = false;
-            ctx.accounts.vault_auth.creator_lock = true;
-
-            //Init trackers
-            ctx.accounts.vault_auth.handled_inputs =
-                (0..transmuter_inputs.len()).map(|_| None).collect();
-            ctx.accounts.vault_auth.input_uris =
-                (0..transmuter_inputs.len()).map(|_| None).collect();
-            ctx.accounts.vault_auth.handled_outputs =
-                (0..transmuter_outputs.len()).map(|_| None).collect();
-        }
 
         //Find an input_info match
         let mut is_match = false;
@@ -195,19 +217,10 @@ pub mod transformer {
 
         require!(is_match, TransmuterError::InvalidInputAccount);
 
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.ata.to_account_info(),
-            to: ctx.accounts.vault.to_account_info(),
-            authority: ctx.accounts.user.to_account_info(),
-        };
-
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        transfer(CpiContext::new(cpi_program, cpi_accounts), 1)?;
-
+        ctx.accounts.transfer_to_vault();
+        
         Ok(())
     }
-
-    //WILL need a cancel_input
 
     pub fn user_claim_output<'info>(
         ctx: Context<UserClaimOutput>,
@@ -221,25 +234,21 @@ pub mod transformer {
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
 
-        let some_handled_inputs: Vec<Option<Pubkey>> = vault_auth
-            .handled_inputs
-            .clone()
-            .into_iter()
-            .filter(|handled_input| handled_input.is_some())
-            .collect();
-
-        let all_inputs_handled = some_handled_inputs.len() == transmuter_inputs.len();
-        require!(all_inputs_handled, TransmuterError::InvalidInputLength);
-
-        let some_handled_outputs: Vec<Option<Pubkey>> = vault_auth
+        let all_outputs_handled: bool = vault_auth
             .handled_outputs
             .clone()
             .into_iter()
-            .filter(|handled_output| handled_output.is_some())
-            .collect();
+            .all(|handled_output| handled_output.is_some());
 
-        let all_outputs_handled = some_handled_outputs.len() == transmuter_outputs.len();
         require!(!all_outputs_handled, TransmuterError::IsComplete);
+
+        let all_inputs_handled: bool = vault_auth
+            .handled_inputs
+            .clone()
+            .into_iter()
+            .all(|handled_input| handled_input.is_some());
+
+        require!(all_inputs_handled, TransmuterError::MissingInputs);
 
         //Find output to use
         for index in 0..transmuter_outputs.len() {
@@ -374,11 +383,46 @@ pub mod transformer {
         }
 
         ctx.accounts.vault_auth.user_lock = true;
-        ctx.accounts.vault_auth.creator_lock = false;
+        ctx.accounts.vault_auth.creator_lock = !ctx
+            .accounts
+            .vault_auth
+            .handled_outputs
+            .clone()
+            .into_iter()
+            .all(|handled_output| handled_output.is_some());
+
+        msg!("CREATOR LOCK, {:?}", ctx.accounts.vault_auth.creator_lock);
 
         Ok(())
     }
 
+    pub fn user_cancel_input<'info>(
+        ctx: Context<UserCancelInput>,
+        _seed: u64,
+        vault_seed: u64,
+    ) -> Result<()> {
+        let vault_auth = &ctx.accounts.vault_auth;
+        let is_mint_handled: bool = vault_auth
+            .handled_inputs
+            .iter()
+            .any(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()));
+
+        require!(is_mint_handled, TransmuterError::InvalidInputAccount);
+
+        ctx.accounts.transfer_from_vault(vault_seed);
+
+        let input_info_index = vault_auth
+            .handled_inputs
+            .iter()
+            .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
+            .unwrap();
+
+        ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
+
+        Ok(())
+    }
+
+    // Creator methods
     pub fn creator_resolve_input<'info>(
         ctx: Context<CreatorResolveInput>,
         _seed: u64,
@@ -386,7 +430,6 @@ pub mod transformer {
     ) -> Result<()> {
         let transmuter = &ctx.accounts.transmuter;
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
-
         let vault_auth = &ctx.accounts.vault_auth;
 
         require!(!vault_auth.creator_lock, TransmuterError::NotClaimed);
@@ -411,27 +454,22 @@ pub mod transformer {
             TransmuterError::InvalidResolveMethod
         );
 
-        let vault_seed_bytes = vault_seed.to_le_bytes();
-        let seeds = &[
-            b"vaultAuth",
-            ctx.accounts.transmuter.to_account_info().key.as_ref(),
-            ctx.accounts.user.to_account_info().key.as_ref(),
-            &vault_seed_bytes.as_ref(),
-            &[vault_auth.vault_auth_bump],
-        ];
-        let signer_seeds = &[&seeds[..]];
+        ctx.accounts.transfer_from_vault(vault_seed);
 
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.vault.to_account_info(),
-            to: ctx.accounts.creator_ata.to_account_info(),
-            authority: ctx.accounts.vault_auth.to_account_info(),
-        };
+        ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        transfer(
-            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-            1,
-        )?;
+        let all_inputs_resolved = ctx
+            .accounts
+            .vault_auth
+            .handled_inputs
+            .iter()
+            .all(|handled_input| handled_input.is_none());
+
+        if all_inputs_resolved {
+            ctx.accounts
+                .vault_auth
+                .close(ctx.accounts.user.to_account_info())?;
+        }
 
         Ok(())
     }
@@ -488,6 +526,21 @@ pub mod transformer {
             CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
             1,
         )?;
+
+        ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
+
+        let all_inputs_resolved = ctx
+            .accounts
+            .vault_auth
+            .handled_inputs
+            .iter()
+            .all(|handled_input| handled_input.is_none());
+
+        if all_inputs_resolved {
+            ctx.accounts
+                .vault_auth
+                .close(ctx.accounts.user.to_account_info())?;
+        }
 
         Ok(())
     }

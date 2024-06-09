@@ -1,15 +1,15 @@
 use crate::structs::Transmuter;
 use crate::VaultAuth;
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount, transfer, Transfer};
+use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct CreatorResolveInput<'info> {
+pub struct UserCancelInput<'info> {
     #[account(mut, constraint = *creator.to_account_info().key == transmuter.creator)]
-    pub creator: Signer<'info>,
+    pub creator: SystemAccount<'info>,
     #[account(mut, constraint = *user.to_account_info().key == vault_auth.user)]
-    pub user: SystemAccount<'info>,
+    pub user: Signer<'info>,
     #[account(mut)]
     pub mint: Box<Account<'info, Mint>>,
     #[account(mut)]
@@ -32,7 +32,7 @@ pub struct CreatorResolveInput<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> CreatorResolveInput<'info> {
+impl<'info> UserCancelInput<'info> {
     pub fn transfer_from_vault(&self, vault_seed: u64) -> Result<()> {
         let vault_seed_bytes = vault_seed.to_le_bytes();
         let seeds = &[

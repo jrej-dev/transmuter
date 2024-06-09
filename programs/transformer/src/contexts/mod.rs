@@ -4,7 +4,9 @@ pub mod transmuter_close;
 pub mod transmuter_create;
 pub mod transmuter_create_holder;
 pub mod transmuter_set;
+pub mod user_cancel_input;
 pub mod user_claim_output;
+pub mod user_init_vault_auth;
 pub mod user_send_input;
 
 pub use creator_burn_input::*;
@@ -13,5 +15,7 @@ pub use transmuter_close::*;
 pub use transmuter_create::*;
 pub use transmuter_create_holder::*;
 pub use transmuter_set::*;
+pub use user_cancel_input::*;
 pub use user_claim_output::*;
+pub use user_init_vault_auth::*;
 pub use user_send_input::*;

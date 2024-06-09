@@ -1,12 +1,5 @@
-import * as anchor from "@coral-xyz/anchor";
 import { program } from "..";
-import {
-  OutputInfo,
-  TraitInfo,
-  getTransmuterStruct,
-  getTransmuterStructs,
-  getvaultAuthStruct,
-} from "../utils";
+import { OutputInfo, TraitInfo, getTransmuterStructs } from "../utils";
 import { creator, creatorMetaplex } from "./1_init";
 import axios from "axios";
 import sharp from "sharp";

@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 #[derive(Accounts)]
 #[instruction(seed: u64)]
 pub struct TransmuterSet<'info> {
-    #[account(mut)]
+    #[account(mut, constraint = *creator.to_account_info().key == transmuter.creator)]
     pub creator: Signer<'info>,
     #[account(
         mut,

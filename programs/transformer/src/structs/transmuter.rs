@@ -6,7 +6,6 @@ pub struct Transmuter {
     pub seed: u64,
     pub auth_bump: u8,
     pub transmuter_bump: u8,
-    pub vault_bump: u8,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
     pub traits_uri: String,
@@ -19,8 +18,7 @@ impl Transmuter {
     + 8 //u64
     + 1 //u8
     + 1 //u8
-    + 1 //u8
-    + 128 //String
-    + 128//String
+    + 128 //Vec<String>
+    + 128 //Vec<String>
     + 24; //String
 }

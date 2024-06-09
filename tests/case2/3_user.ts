@@ -3,9 +3,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { creator, inputMints, user, userMetaplex } from "./1_init";
 import {
   TOKEN_METADATA_PROGRAM_ID,
-  addPriorityFee,
   confirmTx,
-  confirmTxs,
   getMasterEdition,
   getMetadata,
   getTransmuterStruct,
@@ -27,10 +25,7 @@ import { Metadata } from "@metaplex-foundation/js";
 
 export const vaultSeed = new anchor.BN(randomBytes(8));
 
-it("should handle input", async () => {
-  const inputMint = inputMints[0].nft.address;
-
-  //Must have creator and seed to find transmuter
+it("should init vault auth", async () => {
   const transmuter = await getTransmuterStruct(
     program,
     creator.publicKey,
@@ -47,6 +42,40 @@ it("should handle input", async () => {
     program.programId
   )[0];
 
+  console.log("vaultAuth: ", vaultAuth.toBase58());
+
+  await program.methods
+    .userInitVaultAuth(seed, vaultSeed)
+    .accounts({
+      creator: creator.publicKey,
+      user: user.publicKey,
+      vaultAuth,
+      transmuter: transmuter.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([user])
+    .rpc({
+      skipPreflight: true,
+    });
+});
+
+it("should handle input", async () => {
+  const inputMint = inputMints[0].nft.address;
+
+  //Must have creator and seed to find transmuter
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  const vaultAuth = await getvaultAuthStruct(
+    program,
+    transmuter.publicKey,
+    user.publicKey,
+    vaultSeed
+  );
+
   const ata = await getOrCreateAssociatedTokenAccount(
     anchor.getProvider().connection,
     user,
@@ -59,7 +88,7 @@ it("should handle input", async () => {
     anchor.getProvider().connection,
     user,
     inputMint,
-    vaultAuth,
+    vaultAuth.publicKey,
     true
   );
 
@@ -73,7 +102,7 @@ it("should handle input", async () => {
       mint: inputMint,
       ata: ata.address,
       metadata: metadata,
-      vaultAuth,
+      vaultAuth: vaultAuth.publicKey,
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,

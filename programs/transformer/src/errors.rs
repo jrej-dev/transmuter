@@ -14,18 +14,22 @@ pub enum TransmuterError {
     JSONParseError,
     #[msg("Invalid account provided for input")]
     InvalidInputAccount,
+    #[msg("Invalid user")]
+    InvalidUser,
     #[msg("Invalid resolve method provided for input")]
     InvalidResolveMethod,
     #[msg("Duplicate accounts provided for input")]
     DuplicateInputAccount,
     #[msg("Invalid NFT owner provided for the transmuter")]
     InvalidNFTOwner,
-    #[msg("Invalid NFT owner provided for the transmuter")]
-    InvalidInputLength,
+    #[msg("Missing inputs provided to the transmuter")]
+    MissingInputs,
     #[msg("Transmuter locked for user")]
     UserLock,
     #[msg("Transmuter locked for creator")]
     CreatorLock,
+    #[msg("Transmutation incomplete")]
+    IsIncomplete,
     #[msg("Transmutation complete")]
     IsComplete,
     #[msg("First output was not claimed")]

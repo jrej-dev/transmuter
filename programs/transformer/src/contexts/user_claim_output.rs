@@ -17,9 +17,9 @@ use mpl_token_metadata::types::{Collection, Creator, DataV2};
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
 pub struct UserClaimOutput<'info> {
-    #[account(mut)]
+    #[account(mut, constraint = *creator.to_account_info().key == transmuter.creator)]
     pub creator: SystemAccount<'info>,
-    #[account(mut)]
+    #[account(mut, constraint = *user.to_account_info().key == vault_auth.user)]
     pub user: Signer<'info>,
     #[account(
         mut,

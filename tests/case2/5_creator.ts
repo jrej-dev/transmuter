@@ -15,7 +15,7 @@ import {
 import assert from "assert";
 import { program } from "..";
 
-it("resolves an input", async () => {
+it("resolves all inputs", async () => {
   const transmuters = await getTransmuterStructs(program, creator.publicKey);
 
   for (let transmuter of transmuters) {
@@ -94,8 +94,7 @@ it("resolves an input", async () => {
                   creator: creator.publicKey,
                   user: user.publicKey,
                   mint: vaultAuthNft.mintAddress,
-                  creatorAta: creatorAta.address,
-                  metadata: metadata,
+                  ata: creatorAta.address,
                   vaultAuth: vaultAuth.publicKey,
                   vault: vault.address,
                   tokenProgram,
@@ -117,7 +116,7 @@ it("resolves an input", async () => {
   }
 });
 
-it("should check that vault auth is empty", async () => {
+it("should verify all vault auths have been closed", async () => {
   const transmuters = await getTransmuterStructs(program, creator.publicKey);
 
   for (let transmuter of transmuters) {
@@ -127,12 +126,6 @@ it("should check that vault auth is empty", async () => {
       false
     );
 
-    const vaultAuth = vaultAuthStructs[0];
-
-    const vaultAuthNfts = (await creatorMetaplex
-      .nfts()
-      .findAllByOwner({ owner: vaultAuth.publicKey })) as Metadata[];
-
-    assert.equal(vaultAuthNfts.length, 0);
+    assert.equal(vaultAuthStructs.length, 0);
   }
 });

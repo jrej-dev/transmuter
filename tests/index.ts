@@ -14,7 +14,8 @@ export const program = new anchor.Program<Transformer>(
   anchor.getProvider()
 );
 
-// import "./case1";
+import "./case0";
+import "./case1";
 import "./case2";
 
 //solana-test-validator -r --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s clones/metaplex.so

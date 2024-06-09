@@ -1,8 +1,9 @@
 import { importTest } from "../utils/helpers";
 
-describe("Transformer case 1", () => {
+//cancel a transmuter
+
+describe("Transformer case 0", () => {
   importTest("Set up tests", `${__dirname}/1_init`);
   importTest("Transmuter tests", `${__dirname}/2_transmuter`);
   importTest("User tests", `${__dirname}/3_user`);
-  // importTest("Creator tests", `${__dirname}/4_creator`);
 });
