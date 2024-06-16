@@ -17,6 +17,9 @@ use structs::*;
 mod utils;
 use utils::*;
 
+mod methods;
+use methods::*;
+
 // use spl_token::solana_program::program::invoke_signed;
 
 declare_id!("H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf");
@@ -24,12 +27,6 @@ declare_id!("H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf");
 #[program]
 pub mod transformer {
     use super::*;
-
-    // TODO:
-    // add transmuter mint supply
-    // update transmuter
-    // update input
-    // update output
 
     // Transmuter methods
     pub fn transmuter_create(
@@ -71,19 +68,6 @@ pub mod transformer {
         let ata = &ctx.accounts.holder_ata.to_account_info();
         let mut ata_data: &[u8] = &ata.try_borrow_data()?;
         let deserialized_ata = TokenAccount::try_deserialize(&mut ata_data)?;
-
-        msg!(
-            "deserialized_ata.owner.key(): {:?}",
-            deserialized_ata.owner.key()
-        );
-        msg!(
-            "ctx.accounts.creator.key(): {:?}",
-            ctx.accounts.creator.key()
-        );
-        msg!(
-            "deserialized_ata.owner.key(): {:?}",
-            deserialized_ata.owner.key()
-        );
 
         require!(
             deserialized_ata.owner.key() == ctx.accounts.creator.key()
@@ -201,7 +185,7 @@ pub mod transformer {
                 continue;
             }
 
-            is_match = is_matching(
+            is_match = is_matching_nft(
                 &ctx.accounts.metadata.to_account_info(),
                 &transmuter_inputs[index],
             )?;
@@ -218,7 +202,7 @@ pub mod transformer {
         require!(is_match, TransmuterError::InvalidInputAccount);
 
         ctx.accounts.transfer_to_vault();
-        
+
         Ok(())
     }
 
@@ -230,27 +214,15 @@ pub mod transformer {
         msg!("TRANSMUTE");
         //Will need to call that several time
         let transmuter = &ctx.accounts.transmuter;
-        let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
 
-        let all_outputs_handled: bool = vault_auth
-            .handled_outputs
-            .clone()
-            .into_iter()
-            .all(|handled_output| handled_output.is_some());
+        let output_handled = all_outputs_handled(&ctx.accounts.vault_auth);
+        require!(!output_handled, TransmuterError::IsComplete);
 
-        require!(!all_outputs_handled, TransmuterError::IsComplete);
+        let inputs_handled = all_inputs_handled(&ctx.accounts.vault_auth);
+        require!(inputs_handled, TransmuterError::MissingInputs);
 
-        let all_inputs_handled: bool = vault_auth
-            .handled_inputs
-            .clone()
-            .into_iter()
-            .all(|handled_input| handled_input.is_some());
-
-        require!(all_inputs_handled, TransmuterError::MissingInputs);
-
-        //Find output to use
         for index in 0..transmuter_outputs.len() {
             if ctx.accounts.vault_auth.handled_outputs[index] != None {
                 continue;
@@ -261,119 +233,22 @@ pub mod transformer {
             let mut has_minted = false;
 
             if output_info.rule.is_some() {
-                msg!("There is an output rule");
                 let rule = output_info.rule.as_ref().unwrap();
-                msg!("rule.name: {:?}", rule.name);
                 let mint_info = output_info.mint.as_ref().unwrap();
 
                 if rule.name == "split" {
-                    msg!("Split rule");
-                    // Should be only 1 input uri
-                    let input_uri = vault_auth.input_uris[0].clone().unwrap();
-                    msg!("input_uri: {:?}", input_uri);
-
-                    let parsed_url = Url::parse(&input_uri).unwrap();
-                    let hash_query: Vec<_> = parsed_url.query_pairs().into_owned().collect();
-
-                    let split_traits: Vec<(String, String)> = hash_query
-                        .clone()
-                        .into_iter()
-                        .filter(|(key, value)| {
-                            rule.trait_types
-                                .iter()
-                                .any(|(trait_key, trait_value)| trait_key == key)
-                        })
-                        .collect();
-
-                    msg!("split_traits 0: {:?}", split_traits[0]);
-
-                    let mut mint_uri = mint_info.uri.to_owned() + "?";
-                    msg!("use mint uri: {:?}", mint_uri);
-
-                    for i in 0..split_traits.len() {
-                        let key = &split_traits[i].0;
-                        let value = &split_traits[i].1;
-
-                        msg!("key: {:?}, val: {:?}", key, value);
-                        mint_uri = mint_uri + key + "=" + value;
-
-                        if i != split_traits.len() - 1 {
-                            mint_uri = mint_uri + "&"
-                        }
-                    }
-
-                    msg!("new mint uri: {:?}", mint_uri);
-
-                    //TODO apply this to mint
-                    let output_collection = &output_info.collection;
-
-                    //mint as much as input traits (max output)
-                    &ctx.accounts.mint_token();
-                    &ctx.accounts.create_metadata(
-                        &mint_info.title,
-                        &mint_info.symbol,
-                        &mint_uri,
-                        &output_info.collection,
-                        500,
-                    );
-                    &ctx.accounts.create_master_edition();
-                    &ctx.accounts.update_authority();
+                    user_mint_split(&ctx, output_info);
+                    has_minted = true;
                 } else if rule.name == "merge" {
-                    let mut trait_values: Vec<(String, String)> = Vec::new();
-                    for (key, value) in rule.trait_types.clone().into_iter() {
-                        for j in 0..transmuter_inputs.len() {
-                            let input_uri = vault_auth.input_uris[j].clone().unwrap();
-
-                            let parsed_url = Url::parse(&input_uri).unwrap();
-                            let hash_query: Vec<_> =
-                                parsed_url.query_pairs().into_owned().collect();
-
-                            for (query_key, query_value) in hash_query.iter() {
-                                if query_key == &key {
-                                    trait_values.push((key.clone(), String::from(query_value)));
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    let uri_traits = trait_values
-                        .into_iter()
-                        .map(|trait_value| trait_value.0 + "=" + &trait_value.1 + "&")
-                        .rev()
-                        .collect::<Vec<_>>()
-                        .join("");
-
-                    let uri = mint_info.uri.to_owned() + "?" + &uri_traits[0..uri_traits.len() - 1];
-
-                    &ctx.accounts.mint_token();
-                    &ctx.accounts.create_metadata(
-                        &mint_info.title,
-                        &mint_info.symbol,
-                        &uri,
-                        &output_info.collection,
-                        500,
-                    );
-                    &ctx.accounts.create_master_edition();
-                    &ctx.accounts.update_authority();
+                    user_mint_merge(&ctx, output_info);
+                    has_minted = true;
                 } else {
                     msg!("Rule not found");
                 }
-                has_minted = true
             } else {
                 //TODO ADD COLLECTION
                 msg!("There is no rule");
-                let mint_info = output_info.mint.as_ref().unwrap();
-                let _ = ctx.accounts.mint_token();
-                let _ = ctx.accounts.create_metadata(
-                    &mint_info.title,
-                    &mint_info.symbol,
-                    &mint_info.uri,
-                    &output_info.collection,
-                    500,
-                );
-                let _ = ctx.accounts.create_master_edition();
-                let _ = ctx.accounts.update_authority();
+                user_mint(&ctx, output_info);
                 has_minted = true
             }
 
@@ -383,16 +258,7 @@ pub mod transformer {
         }
 
         ctx.accounts.vault_auth.user_lock = true;
-        ctx.accounts.vault_auth.creator_lock = !ctx
-            .accounts
-            .vault_auth
-            .handled_outputs
-            .clone()
-            .into_iter()
-            .all(|handled_output| handled_output.is_some());
-
-        msg!("CREATOR LOCK, {:?}", ctx.accounts.vault_auth.creator_lock);
-
+        ctx.accounts.vault_auth.creator_lock = !all_outputs_handled(&ctx.accounts.vault_auth);
         Ok(())
     }
 
@@ -402,12 +268,10 @@ pub mod transformer {
         vault_seed: u64,
     ) -> Result<()> {
         let vault_auth = &ctx.accounts.vault_auth;
-        let is_mint_handled: bool = vault_auth
-            .handled_inputs
-            .iter()
-            .any(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()));
-
-        require!(is_mint_handled, TransmuterError::InvalidInputAccount);
+        require!(
+            is_mint_handled(&ctx.accounts.vault_auth, ctx.accounts.mint.key()),
+            TransmuterError::InvalidInputAccount
+        );
 
         ctx.accounts.transfer_from_vault(vault_seed);
 
@@ -416,7 +280,6 @@ pub mod transformer {
             .iter()
             .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
             .unwrap();
-
         ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
 
         Ok(())
@@ -446,7 +309,6 @@ pub mod transformer {
             .iter()
             .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
             .unwrap();
-
         let input_info: &InputInfo = &transmuter_inputs[input_info_index];
 
         require!(
@@ -458,14 +320,7 @@ pub mod transformer {
 
         ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
 
-        let all_inputs_resolved = ctx
-            .accounts
-            .vault_auth
-            .handled_inputs
-            .iter()
-            .all(|handled_input| handled_input.is_none());
-
-        if all_inputs_resolved {
+        if all_inputs_resolved(&ctx.accounts.vault_auth) {
             ctx.accounts
                 .vault_auth
                 .close(ctx.accounts.user.to_account_info())?;
@@ -497,7 +352,6 @@ pub mod transformer {
             .iter()
             .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
             .unwrap();
-
         let input_info: &InputInfo = &transmuter_inputs[input_info_index];
 
         require!(
@@ -529,14 +383,7 @@ pub mod transformer {
 
         ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
 
-        let all_inputs_resolved = ctx
-            .accounts
-            .vault_auth
-            .handled_inputs
-            .iter()
-            .all(|handled_input| handled_input.is_none());
-
-        if all_inputs_resolved {
+        if all_inputs_resolved(&ctx.accounts.vault_auth) {
             ctx.accounts
                 .vault_auth
                 .close(ctx.accounts.user.to_account_info())?;

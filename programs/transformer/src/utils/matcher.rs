@@ -2,15 +2,18 @@ use anchor_lang::prelude::*;
 use mpl_token_metadata::accounts::Metadata;
 use url::Url;
 
-use crate::InputInfo;
+use crate::{InputInfo, Rule};
 
-pub fn is_matching<'info>(metadata: &AccountInfo<'info>, input_info: &InputInfo) -> Result<bool> {
+pub fn is_matching_nft<'info>(
+    metadata: &AccountInfo<'info>,
+    input_info: &InputInfo,
+) -> Result<bool> {
     msg!("in is MATCHING");
     let mut is_match = false;
 
     match input_info.token_standard.as_str() {
         "nft" => {
-            let input_metadata: Metadata = Metadata::try_from(metadata)?;
+            let input_metadata = Metadata::try_from(metadata)?;
             let collection_pubkey = input_metadata.collection.unwrap().key;
 
             is_match = collection_pubkey.to_string() == input_info.collection;
@@ -54,4 +57,19 @@ pub fn is_matching<'info>(metadata: &AccountInfo<'info>, input_info: &InputInfo)
     };
 
     Ok(is_match)
+}
+
+pub fn get_matching_traits(input_uri: String, rule: &Rule) -> Vec<(String, String)> {
+    let parsed_url = Url::parse(&input_uri).unwrap();
+    let hash_query: Vec<_> = parsed_url.query_pairs().into_owned().collect();
+
+    return hash_query
+        .clone()
+        .into_iter()
+        .filter(|(key, value)| {
+            rule.trait_types
+                .iter()
+                .any(|(trait_key, trait_value)| trait_key == key)
+        })
+        .collect();
 }
