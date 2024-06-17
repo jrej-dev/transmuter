@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub struct Transmuter {
     pub creator: Pubkey,
     pub seed: u64,
+    pub locked: bool,
     pub auth_bump: u8,
     pub transmuter_bump: u8,
     pub inputs: Vec<String>,
@@ -16,6 +17,7 @@ impl Transmuter {
     pub const LEN: usize = 8 //Discriminator
     + 32 //Pubkey
     + 8 //u64
+    + 1 //bool
     + 1 //u8
     + 1 //u8
     + 128 //Vec<String>

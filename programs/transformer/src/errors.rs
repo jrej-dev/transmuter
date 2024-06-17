@@ -25,9 +25,11 @@ pub enum TransmuterError {
     #[msg("Missing inputs provided to the transmuter")]
     MissingInputs,
     #[msg("Transmuter locked for user")]
-    UserLock,
+    UserLocked,
     #[msg("Transmuter locked for creator")]
-    CreatorLock,
+    CreatorLocked,
+    #[msg("Transmuter locked")]
+    IsLocked,
     #[msg("Transmutation incomplete")]
     IsIncomplete,
     #[msg("Transmutation complete")]

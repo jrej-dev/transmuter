@@ -116,17 +116,15 @@ pub mod transformer {
         Ok(())
     }
 
-    // pub fn transmuter_pause(_ctx: Context<TransmuterClose>) -> Result<()> {
-    //     // Prevent any new transmutation
-    //     // Allow ongoing ones
-    //     // can be resumed
-    //     Ok(())
-    // }
+    pub fn transmuter_pause(ctx: Context<TransmuterSet>, _seed: u64) -> Result<()> {
+        ctx.accounts.transmuter.locked = true;
+        Ok(())
+    }
 
-    // pub fn transmuter_resume(_ctx: Context<TransmuterClose>) -> Result<()> {
-    //     // resume a paused transmuter
-    //     Ok(())
-    // }
+    pub fn transmuter_resume(ctx: Context<TransmuterSet>, _seed: u64) -> Result<()> {
+        ctx.accounts.transmuter.locked = false;
+        Ok(())
+    }
 
     pub fn transmuter_close(_ctx: Context<TransmuterClose>) -> Result<()> {
         Ok(())
@@ -139,6 +137,8 @@ pub mod transformer {
         vault_seed: u64,
     ) -> Result<()> {
         let transmuter = &ctx.accounts.transmuter;
+        require!(!transmuter.locked, TransmuterError::IsLocked);
+
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
 
@@ -149,8 +149,8 @@ pub mod transformer {
         ctx.accounts.vault_auth.seed = vault_seed;
 
         //Init locks
-        ctx.accounts.vault_auth.user_lock = false;
-        ctx.accounts.vault_auth.creator_lock = true;
+        ctx.accounts.vault_auth.user_locked = false;
+        ctx.accounts.vault_auth.creator_locked = true;
 
         //Init trackers
         ctx.accounts.vault_auth.handled_inputs =
@@ -168,11 +168,13 @@ pub mod transformer {
         vault_seed: u64,
     ) -> Result<()> {
         let transmuter = &ctx.accounts.transmuter;
+        require!(!transmuter.locked, TransmuterError::IsLocked);
+
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
 
         require!(
-            !&ctx.accounts.vault_auth.user_lock,
-            TransmuterError::UserLock
+            !&ctx.accounts.vault_auth.user_locked,
+            TransmuterError::UserLocked
         );
 
         //Find an input_info match
@@ -214,6 +216,8 @@ pub mod transformer {
         msg!("TRANSMUTE");
         //Will need to call that several time
         let transmuter = &ctx.accounts.transmuter;
+        require!(!transmuter.locked, TransmuterError::IsLocked);
+
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
 
@@ -257,8 +261,8 @@ pub mod transformer {
             break;
         }
 
-        ctx.accounts.vault_auth.user_lock = true;
-        ctx.accounts.vault_auth.creator_lock = !all_outputs_handled(&ctx.accounts.vault_auth);
+        ctx.accounts.vault_auth.user_locked = true;
+        ctx.accounts.vault_auth.creator_locked = !all_outputs_handled(&ctx.accounts.vault_auth);
         Ok(())
     }
 
@@ -267,6 +271,9 @@ pub mod transformer {
         _seed: u64,
         vault_seed: u64,
     ) -> Result<()> {
+        let transmuter = &ctx.accounts.transmuter;
+        require!(!transmuter.locked, TransmuterError::IsLocked);
+
         let vault_auth = &ctx.accounts.vault_auth;
         require!(
             is_mint_handled(&ctx.accounts.vault_auth, ctx.accounts.mint.key()),
@@ -295,7 +302,7 @@ pub mod transformer {
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
 
-        require!(!vault_auth.creator_lock, TransmuterError::NotClaimed);
+        require!(!vault_auth.creator_locked, TransmuterError::NotClaimed);
 
         require!(
             vault_auth
@@ -338,7 +345,7 @@ pub mod transformer {
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
 
-        require!(!vault_auth.creator_lock, TransmuterError::NotClaimed);
+        require!(!vault_auth.creator_locked, TransmuterError::NotClaimed);
 
         require!(
             vault_auth

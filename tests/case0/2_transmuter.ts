@@ -264,10 +264,6 @@ it("checks the transmuter has been created", async () => {
   assert.ok(transmuter);
 });
 
-//pause transmuter?
-
-//reopen closed transmuter?
-
 it("should add one input to the transmuter", async () => {
   const transmuterStructBefore = await getTransmuterStruct(
     program,
@@ -332,4 +328,25 @@ it("should add one output to the transmuter", async () => {
     .rpc({
       skipPreflight: true,
     });
+});
+
+it("should pause the transmuter", async () => {
+  await program.methods
+    .transmuterPause(seed)
+    .accounts({
+      creator: creator.publicKey,
+      transmuter,
+    })
+    .signers([creator])
+    .rpc({
+      skipPreflight: true,
+    });
+
+  const transmuterStruct = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.ok(transmuterStruct.account.locked);
 });

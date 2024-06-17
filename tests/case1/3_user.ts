@@ -488,8 +488,8 @@ it("should verify that vault is locked for user but not complete", async () => {
     (output) => output
   );
 
-  assert.equal(vaultAuth.account.userLock, true);
-  assert.equal(vaultAuth.account.creatorLock, true);
+  assert.equal(vaultAuth.account.userLocked, true);
+  assert.equal(vaultAuth.account.creatorLocked, true);
   assert.notEqual(transmuter.account.outputs.length, handledOutputs.length);
 });
 
@@ -519,8 +519,6 @@ it("should verify that creator cannot resolve incomplete transmuter", async () =
           true
         );
 
-        const metadata = await getMetadata(vaultAuthNft.mintAddress);
-
         const inputInfoIndex = vaultAuth.account.handledInputs.findIndex(
           (inputAddress) =>
             inputAddress?.toBase58() === vaultAuthNft.mintAddress.toBase58()
@@ -541,7 +539,6 @@ it("should verify that creator cannot resolve incomplete transmuter", async () =
                     creator: creator.publicKey,
                     user: user.publicKey,
                     mint: vaultAuthNft.mintAddress,
-                    metadata: metadata,
                     vaultAuth: vaultAuth.publicKey,
                     vault: vault.address,
                     tokenProgram,
@@ -681,7 +678,7 @@ it("should verify that vault is locked for user but complete", async () => {
     (output) => output
   );
 
-  assert.equal(vaultAuth.account.userLock, true);
-  assert.equal(vaultAuth.account.creatorLock, false);
+  assert.equal(vaultAuth.account.userLocked, true);
+  assert.equal(vaultAuth.account.creatorLocked, false);
   assert.equal(transmuter.account.outputs.length, handledOutputs.length);
 });
