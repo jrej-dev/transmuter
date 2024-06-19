@@ -10,6 +10,8 @@ pub struct Transmuter {
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
     pub traits_uri: String,
+    pub transmute_max: u64,
+    pub transmute_count: u64,
 }
 
 //Vector max size?
@@ -22,5 +24,7 @@ impl Transmuter {
     + 1 //u8
     + 128 //Vec<String>
     + 128 //Vec<String>
-    + 24; //String
+    + 24 //String
+    + 8 //u64
+    + 8; //u64
 }

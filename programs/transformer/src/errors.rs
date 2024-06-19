@@ -30,6 +30,8 @@ pub enum TransmuterError {
     CreatorLocked,
     #[msg("Transmuter locked")]
     IsLocked,
+    #[msg("Transmute max reached")]
+    MaxReached,
     #[msg("Transmutation incomplete")]
     IsIncomplete,
     #[msg("Transmutation complete")]

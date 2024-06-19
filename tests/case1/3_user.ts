@@ -470,6 +470,16 @@ it("should claim output", async () => {
     .then(confirmTx);
 });
 
+it("should verify the transmuter count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteCount, 1);
+});
+
 it("should verify that vault is locked for user but not complete", async () => {
   const transmuter = await getTransmuterStruct(
     program,
@@ -658,6 +668,16 @@ it("should claim output", async () => {
       skipPreflight: true,
     })
     .then(confirmTx);
+});
+
+it("should verify the transmuter count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteCount, 1);
 });
 
 it("should verify that vault is locked for user but complete", async () => {

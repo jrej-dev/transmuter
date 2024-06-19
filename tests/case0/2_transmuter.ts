@@ -27,6 +27,8 @@ require("dotenv").config({ path: ".env" });
 // Random seed
 export const seed = new BN(randomBytes(8));
 export const vaultSeed = new anchor.BN(randomBytes(8));
+export const vaultSeed2 = new anchor.BN(randomBytes(8));
+export const vaultSeed3 = new anchor.BN(randomBytes(8));
 
 const transmuter = PublicKey.findProgramAddressSync(
   [
@@ -59,7 +61,7 @@ it("creates the transmuter", async () => {
   console.log("wba: ", wba.toBase58());
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri)
+    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(0))
     .accounts({
       creator: creator.publicKey,
       auth,
@@ -77,6 +79,17 @@ it("creates the transmuter", async () => {
 it("checks one transmuter has been created", async () => {
   const transmuters = await getTransmuterStructs(program, creator.publicKey);
   assert.equal(transmuters.length, 1);
+});
+
+it("checks the transmuter max and count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteMax, 0);
+  assert.equal(transmuter.account.transmuteCount, 0);
 });
 
 it("should add one input to the transmuter", async () => {
@@ -240,7 +253,7 @@ it("creates a new transmuter", async () => {
   console.log("wba: ", wba.toBase58());
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri)
+    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(1))
     .accounts({
       creator: creator.publicKey,
       auth,
@@ -262,6 +275,17 @@ it("checks the transmuter has been created", async () => {
     seed
   );
   assert.ok(transmuter);
+});
+
+it("checks the transmuter max and count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteMax, 1);
+  assert.equal(transmuter.account.transmuteCount, 0);
 });
 
 it("should add one input to the transmuter", async () => {

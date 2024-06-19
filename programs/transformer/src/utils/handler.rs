@@ -18,8 +18,13 @@ pub fn all_inputs_handled(vault_auth: &Box<Account<VaultAuth>>) -> bool {
         .all(|handled_input| handled_input.is_some())
 }
 
-
-
+pub fn no_outputs_handled(vault_auth: &Box<Account<VaultAuth>>) -> bool {
+    vault_auth
+        .handled_outputs
+        .clone()
+        .into_iter()
+        .all(|handled_output| handled_output.is_none())
+}
 
 pub fn all_inputs_resolved(vault_auth: &Box<Account<VaultAuth>>) -> bool {
     vault_auth

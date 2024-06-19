@@ -35,6 +35,7 @@ pub mod transformer {
         _input_length: u64,
         _output_length: u64,
         traits_uri: String,
+        transmute_max: u64,
     ) -> Result<()> {
         //Fee 0.75 SOL
         let _ = ctx
@@ -54,6 +55,8 @@ pub mod transformer {
         transmuter.auth_bump = ctx.bumps.auth;
         transmuter.transmuter_bump = ctx.bumps.transmuter;
         transmuter.traits_uri = traits_uri;
+        transmuter.transmute_count = 0;
+        transmuter.transmute_max = transmute_max;
 
         Ok(())
     }
@@ -64,6 +67,7 @@ pub mod transformer {
         _input_length: u64,
         _output_length: u64,
         traits_uri: String,
+        transmute_max: u64,
     ) -> Result<()> {
         let ata = &ctx.accounts.holder_ata.to_account_info();
         let mut ata_data: &[u8] = &ata.try_borrow_data()?;
@@ -92,6 +96,8 @@ pub mod transformer {
         transmuter.auth_bump = ctx.bumps.auth;
         transmuter.transmuter_bump = ctx.bumps.transmuter;
         transmuter.traits_uri = traits_uri;
+        transmuter.transmute_max = transmute_max;
+        transmuter.transmute_count = 0;
 
         Ok(())
     }
@@ -139,6 +145,10 @@ pub mod transformer {
         let transmuter = &ctx.accounts.transmuter;
         require!(!transmuter.locked, TransmuterError::IsLocked);
 
+        let is_max_reached =
+            transmuter.transmute_max > 0 && transmuter.transmute_count >= transmuter.transmute_max;
+        require!(!is_max_reached, TransmuterError::MaxReached);
+
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
 
@@ -169,6 +179,10 @@ pub mod transformer {
     ) -> Result<()> {
         let transmuter = &ctx.accounts.transmuter;
         require!(!transmuter.locked, TransmuterError::IsLocked);
+
+        let is_max_reached =
+            transmuter.transmute_max > 0 && transmuter.transmute_count >= transmuter.transmute_max;
+        require!(!is_max_reached, TransmuterError::MaxReached);
 
         let transmuter_inputs = parse_json_vec::<InputInfo>(&transmuter.inputs)?;
 
@@ -208,15 +222,47 @@ pub mod transformer {
         Ok(())
     }
 
+    pub fn user_cancel_input<'info>(
+        ctx: Context<UserCancelInput>,
+        _seed: u64,
+        vault_seed: u64,
+    ) -> Result<()> {
+        let transmuter = &ctx.accounts.transmuter;
+        require!(!transmuter.locked, TransmuterError::IsLocked);
+
+        let vault_auth = &ctx.accounts.vault_auth;
+        require!(
+            is_mint_handled(&ctx.accounts.vault_auth, ctx.accounts.mint.key()),
+            TransmuterError::InvalidInputAccount
+        );
+
+        ctx.accounts.transfer_from_vault(vault_seed);
+
+        let input_info_index = vault_auth
+            .handled_inputs
+            .iter()
+            .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
+            .unwrap();
+        ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
+
+        Ok(())
+    }
+
     pub fn user_claim_output<'info>(
         ctx: Context<UserClaimOutput>,
         _seed: u64,
         _vault_seed: u64,
     ) -> Result<()> {
-        msg!("TRANSMUTE");
-        //Will need to call that several time
-        let transmuter = &ctx.accounts.transmuter;
+        let is_first_claim = no_outputs_handled(&ctx.accounts.vault_auth);
+
+        let mut transmuter = &ctx.accounts.transmuter;
         require!(!transmuter.locked, TransmuterError::IsLocked);
+
+        if is_first_claim {
+            let is_max_reached = transmuter.transmute_max > 0
+                && transmuter.transmute_count >= transmuter.transmute_max;
+            require!(!is_max_reached, TransmuterError::MaxReached);
+        }
 
         let transmuter_outputs = parse_json_vec::<OutputInfo>(&transmuter.outputs)?;
         let vault_auth = &ctx.accounts.vault_auth;
@@ -257,37 +303,15 @@ pub mod transformer {
             }
 
             require!(has_minted, TransmuterError::MintFailed);
+            if is_first_claim {
+                ctx.accounts.transmuter.transmute_count += 1;
+            }
             ctx.accounts.vault_auth.handled_outputs[index] = Some(ctx.accounts.mint.key());
             break;
         }
 
         ctx.accounts.vault_auth.user_locked = true;
         ctx.accounts.vault_auth.creator_locked = !all_outputs_handled(&ctx.accounts.vault_auth);
-        Ok(())
-    }
-
-    pub fn user_cancel_input<'info>(
-        ctx: Context<UserCancelInput>,
-        _seed: u64,
-        vault_seed: u64,
-    ) -> Result<()> {
-        let transmuter = &ctx.accounts.transmuter;
-        require!(!transmuter.locked, TransmuterError::IsLocked);
-
-        let vault_auth = &ctx.accounts.vault_auth;
-        require!(
-            is_mint_handled(&ctx.accounts.vault_auth, ctx.accounts.mint.key()),
-            TransmuterError::InvalidInputAccount
-        );
-
-        ctx.accounts.transfer_from_vault(vault_seed);
-
-        let input_info_index = vault_auth
-            .handled_inputs
-            .iter()
-            .position(|&input: &Option<Pubkey>| input == Some(ctx.accounts.mint.key()))
-            .unwrap();
-        ctx.accounts.vault_auth.handled_inputs[input_info_index] = None;
 
         Ok(())
     }

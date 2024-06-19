@@ -79,7 +79,7 @@ it("creates a transformer as a holder", async () => {
   assert.notEqual(ata, undefined, "Ata not found");
 
   await program.methods
-    .transmuterCreateHolder(seed, new BN(1), new BN(8), traitsUri)
+    .transmuterCreateHolder(seed, new BN(1), new BN(8), traitsUri, new BN(0))
     .accounts({
       creator: creator.publicKey,
       auth,
@@ -99,8 +99,16 @@ it("checks one transmuter has been created", async () => {
   assert.equal(transmuters.length, 1);
 });
 
-// Wanna test titan dog flow
-// split into 5 parts
+it("checks the transmuter max and count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteMax, 0);
+  assert.equal(transmuter.account.transmuteCount, 0);
+});
 
 it("should add one input to the transmuter", async () => {
   const transmuterStructBefore = await getTransmuterStruct(

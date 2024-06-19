@@ -47,7 +47,7 @@ it("creates the transmuter", async () => {
   console.log("wba: ", wba.toBase58());
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri)
+    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(1))
     .accounts({
       creator: creator.publicKey,
       auth,
@@ -65,6 +65,17 @@ it("creates the transmuter", async () => {
 it("checks one transmuter has been created", async () => {
   const transmuters = await getTransmuterStructs(program, creator.publicKey);
   assert.equal(transmuters.length, 1);
+});
+
+it("checks the transmuter max and count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteMax, 1);
+  assert.equal(transmuter.account.transmuteCount, 0);
 });
 
 it("should add one input to the transmuter", async () => {
