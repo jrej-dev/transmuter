@@ -1,11 +1,11 @@
-use crate::{uri_from_traits, InputInfo, OutputInfo, Rule, VaultAuth};
-use crate::{utils::*, UserClaimOutput};
+use crate::{uri_from_traits, InputInfo, OutputInfo, Rule, TransmuterError, VaultAuth};
+use crate::{utils::*, UserClaimOutputNft};
 use anchor_lang::prelude::*;
 use url::Url;
 
-pub fn user_mint_split(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo) -> Result<()> {
+pub fn user_mint_split(ctx: &Context<UserClaimOutputNft>, output_info: &OutputInfo) -> Result<()> {
     let rule = output_info.rule.as_ref().unwrap();
-    let mint_info = output_info.mint.as_ref().unwrap();
+    let mint_info = output_info.mint_info.as_ref().unwrap();
 
     msg!("Split rule");
     // NB: index 0 because it should only be 1 input uri
@@ -20,7 +20,7 @@ pub fn user_mint_split(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo)
     // let output_collection = &output_info.collection;
 
     //mint as much as input traits (max output)
-    &ctx.accounts.mint_token();
+    let result = &ctx.accounts.mint_token();
     &ctx.accounts.create_metadata(
         &mint_info.title,
         &mint_info.symbol,
@@ -30,12 +30,18 @@ pub fn user_mint_split(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo)
     );
     &ctx.accounts.create_master_edition();
     &ctx.accounts.update_authority();
+
+    match result {
+        Ok(res) => res,
+        Err(_e) => panic!("{}", TransmuterError::MintFailed),
+    };
+
     Ok(())
 }
 
-pub fn user_mint_merge(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo) -> Result<()> {
+pub fn user_mint_merge(ctx: &Context<UserClaimOutputNft>, output_info: &OutputInfo) -> Result<()> {
     let rule = output_info.rule.as_ref().unwrap();
-    let mint_info = output_info.mint.as_ref().unwrap();
+    let mint_info = output_info.mint_info.as_ref().unwrap();
     let vault_auth = &ctx.accounts.vault_auth;
 
     let mut trait_values: Vec<(String, String)> = Vec::new();
@@ -47,7 +53,7 @@ pub fn user_mint_merge(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo)
 
     let uri = uri_from_traits(&mint_info.uri, trait_values);
 
-    &ctx.accounts.mint_token();
+    let result = &ctx.accounts.mint_token();
     &ctx.accounts.create_metadata(
         &mint_info.title,
         &mint_info.symbol,
@@ -57,12 +63,18 @@ pub fn user_mint_merge(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo)
     );
     &ctx.accounts.create_master_edition();
     &ctx.accounts.update_authority();
+
+    match result {
+        Ok(res) => res,
+        Err(_e) => panic!("{}", TransmuterError::MintFailed),
+    };
+
     Ok(())
 }
 
-pub fn user_mint(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo) -> Result<()> {
-    let mint_info = output_info.mint.as_ref().unwrap();
-    let _ = ctx.accounts.mint_token();
+pub fn user_mint(ctx: &Context<UserClaimOutputNft>, output_info: &OutputInfo) -> Result<()> {
+    let mint_info = output_info.mint_info.as_ref().unwrap();
+    let result = ctx.accounts.mint_token();
     let _ = ctx.accounts.create_metadata(
         &mint_info.title,
         &mint_info.symbol,
@@ -72,5 +84,11 @@ pub fn user_mint(ctx: &Context<UserClaimOutput>, output_info: &OutputInfo) -> Re
     );
     let _ = ctx.accounts.create_master_edition();
     let _ = ctx.accounts.update_authority();
+
+    match result {
+        Ok(res) => res,
+        Err(_e) => panic!("{}", TransmuterError::MintFailed),
+    };
+
     Ok(())
 }

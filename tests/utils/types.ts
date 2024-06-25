@@ -13,7 +13,8 @@ export type OutputInfo = {
   token_standard: String;
   rule?: Rule;
   uri?: String;
-  mint?: MintInfo;
+  mint_info?: MintInfo;
+  mint?: String;
 };
 
 export type TraitInfo = {

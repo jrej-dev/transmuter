@@ -1,10 +1,11 @@
 use crate::errors::TransmuterError;
-use crate::structs::{InputInfo, OutputInfo, Transmuter};
+use crate::structs::{Config, InputInfo, OutputInfo, Transmuter};
+use crate::utils::parse_json;
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
 #[derive(Accounts)]
-#[instruction(seed: u64, input_length: usize, output_length: usize)]
+#[instruction(seed: u64, config_json: String)]
 pub struct TransmuterCreate<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -13,7 +14,7 @@ pub struct TransmuterCreate<'info> {
         payer = creator,
         seeds = [b"transmuter", creator.key.as_ref(), seed.to_le_bytes().as_ref()],
         bump,
-        space =  Transmuter::LEN + input_length * InputInfo::LEN + output_length * OutputInfo::LEN + 220 * 3,
+        space =  Transmuter::LEN + parse_json::<Config>(&config_json).unwrap().input_length as usize * InputInfo::LEN + parse_json::<Config>(&config_json).unwrap().output_length as usize * OutputInfo::LEN,
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
     #[account(

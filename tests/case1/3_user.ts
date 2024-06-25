@@ -108,7 +108,6 @@ it("Should fail to handle input as another user", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([creator])
       .rpc({
@@ -168,7 +167,6 @@ it("should handle input", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -227,7 +225,6 @@ it("Should fail to handle input as trait is not matching", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc({
@@ -280,7 +277,7 @@ it("should fail to claim output", async () => {
     const masterEdition = await getMasterEdition(mint);
 
     await program.methods
-      .userClaimOutput(seed, vaultSeed)
+      .userClaimOutputNft(seed, vaultSeed)
       .accounts({
         creator: creator.publicKey,
         user: user.publicKey,
@@ -379,7 +376,6 @@ it("should handle input", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -444,7 +440,7 @@ it("should claim output", async () => {
   const masterEdition = await getMasterEdition(mint);
 
   await program.methods
-    .userClaimOutput(seed, vaultSeed)
+    .userClaimOutputNft(seed, vaultSeed)
     .accounts({
       creator: creator.publicKey,
       user: user.publicKey,
@@ -553,7 +549,6 @@ it("should verify that creator cannot resolve incomplete transmuter", async () =
                     vault: vault.address,
                     tokenProgram,
                     transmuter: transmuter.publicKey,
-                    systemProgram: SystemProgram.programId,
                   })
                   .signers([creator])
                   .rpc({
@@ -585,7 +580,6 @@ it("should verify that creator cannot resolve incomplete transmuter", async () =
                     vault: vault.address,
                     tokenProgram,
                     transmuter: transmuter.publicKey,
-                    systemProgram: SystemProgram.programId,
                   })
                   .signers([creator])
                   .rpc({
@@ -644,7 +638,7 @@ it("should claim output", async () => {
   const masterEdition = await getMasterEdition(mint);
 
   await program.methods
-    .userClaimOutput(seed, vaultSeed)
+    .userClaimOutputNft(seed, vaultSeed)
     .accounts({
       creator: creator.publicKey,
       user: user.publicKey,

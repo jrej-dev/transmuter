@@ -16,7 +16,7 @@ use mpl_token_metadata::types::{Collection, Creator, DataV2};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct UserClaimOutput<'info> {
+pub struct UserClaimOutputNft<'info> {
     #[account(mut, constraint = *creator.to_account_info().key == transmuter.creator)]
     pub creator: SystemAccount<'info>,
     #[account(mut, constraint = *user.to_account_info().key == vault_auth.user)]
@@ -60,7 +60,7 @@ pub struct UserClaimOutput<'info> {
     pub sysvar_instructions: AccountInfo<'info>,
 }
 
-impl<'info> UserClaimOutput<'info> {
+impl<'info> UserClaimOutputNft<'info> {
     pub fn mint_token(&self) -> Result<()> {
         let seeds = &[
             &b"auth"[..],
@@ -81,8 +81,7 @@ impl<'info> UserClaimOutput<'info> {
             signer_seeds,
         );
 
-        let _ = mint_to(mint_ctx, 1);
-        Ok(())
+        mint_to(mint_ctx, 1)
     }
 
     pub fn create_metadata(
@@ -90,7 +89,7 @@ impl<'info> UserClaimOutput<'info> {
         title: &String,
         symbol: &String,
         uri: &String,
-        collection_mint: &String,
+        collection_mint: &Option<String>,
         seller_fee_basis_point: u16,
     ) -> Result<()> {
         let seeds = &[
@@ -110,10 +109,15 @@ impl<'info> UserClaimOutput<'info> {
             share: 100,
         };
 
-        let collection = Collection {
-            key: Pubkey::from_str(collection_mint).unwrap(),
-            verified: false,
-        };
+        let mut collection: Option<Collection> = None;
+
+        if collection_mint.is_some() {
+            let collection_string = collection_mint.as_ref().unwrap();
+            collection = Some(Collection {
+                key: Pubkey::from_str(collection_string).unwrap(),
+                verified: false,
+            });
+        }
 
         let data: DataV2 = DataV2 {
             name: title.to_string(),
@@ -121,7 +125,7 @@ impl<'info> UserClaimOutput<'info> {
             uri: uri.to_string(),
             seller_fee_basis_points: seller_fee_basis_point,
             creators: Some(vec![auth_creator, creator]),
-            collection: Some(collection),
+            collection,
             uses: None,
         };
 
@@ -137,7 +141,7 @@ impl<'info> UserClaimOutput<'info> {
             .is_mutable(true)
             .invoke_signed(signer_seeds);
 
-        let __ = VerifyCreatorV1CpiBuilder::new(&self.token_metadata_program)
+        let result = VerifyCreatorV1CpiBuilder::new(&self.token_metadata_program)
             .authority(&self.auth.to_account_info())
             .metadata(&self.metadata.to_account_info())
             .system_program(&self.system_program)
@@ -145,7 +149,7 @@ impl<'info> UserClaimOutput<'info> {
             .add_remaining_account(&self.token_metadata_program.to_account_info(), false, false)
             .invoke_signed(signer_seeds);
 
-        Ok(())
+        Ok(result?)
     }
 
     pub fn create_master_edition(&self) -> Result<()> {
@@ -156,7 +160,7 @@ impl<'info> UserClaimOutput<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        let _ = CreateMasterEditionV3CpiBuilder::new(&self.token_metadata_program)
+        let result = CreateMasterEditionV3CpiBuilder::new(&self.token_metadata_program)
             .edition(&self.master_edition.to_account_info())
             .mint(&self.mint.to_account_info())
             .update_authority(&self.auth.to_account_info())
@@ -169,7 +173,7 @@ impl<'info> UserClaimOutput<'info> {
             .rent(Some(&self.rent))
             .invoke_signed(signer_seeds);
 
-        Ok(())
+        Ok(result?)
     }
 
     pub fn update_authority(&self) -> Result<()> {
@@ -180,7 +184,7 @@ impl<'info> UserClaimOutput<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        let _ = UpdateV1CpiBuilder::new(&self.token_program.to_account_info())
+        let result = UpdateV1CpiBuilder::new(&self.token_program.to_account_info())
             .authority(&self.auth.to_account_info())
             .mint(&self.mint.to_account_info())
             .metadata(&self.metadata.to_account_info())
@@ -191,6 +195,6 @@ impl<'info> UserClaimOutput<'info> {
             .add_remaining_account(&self.token_metadata_program.to_account_info(), false, false)
             .invoke_signed(signer_seeds);
 
-        Ok(())
+        Ok(result?)
     }
 }

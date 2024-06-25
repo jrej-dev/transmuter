@@ -1,5 +1,5 @@
-use crate::structs::Transmuter;
 use crate::VaultAuth;
+use crate::{structs::Transmuter, TransmuterError};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
@@ -32,7 +32,6 @@ pub struct UserSendInput<'info> {
     #[account(mut)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
 }
 
 impl<'info> UserSendInput<'info> {
@@ -44,7 +43,6 @@ impl<'info> UserSendInput<'info> {
         };
 
         let cpi_program = self.token_program.to_account_info();
-        transfer(CpiContext::new(cpi_program, cpi_accounts), 1)?;
-        Ok(())
+        transfer(CpiContext::new(cpi_program, cpi_accounts), 1)
     }
 }

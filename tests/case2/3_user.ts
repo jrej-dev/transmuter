@@ -106,7 +106,6 @@ it("should handle input", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -151,7 +150,7 @@ it("should claim outputs", async () => {
 
     const masterEdition = await getMasterEdition(mint);
     await program.methods
-      .userClaimOutput(seed, vaultSeed)
+      .userClaimOutputNft(seed, vaultSeed)
       .accounts({
         creator: creator.publicKey,
         user: user.publicKey,

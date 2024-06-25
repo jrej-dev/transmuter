@@ -4,6 +4,7 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { randomBytes } from "crypto";
 import assert from "assert";
 import {
+  WBA,
   getProgramAuthority,
   getTransmuterStruct,
   getTransmuterStructs,
@@ -30,9 +31,6 @@ export const auth = PublicKey.findProgramAddressSync(
   program.programId
 )[0];
 
-const traitsUri =
-  "https://bafkreiaum2ncnoacx6la6o4anebrvgqgsoqymk62md5vw5mbbt2jvhfzfe.ipfs.nftstorage.link";
-
 console.log(`auth: ${auth.toBase58()}`);
 console.log(`transmuter: ${transmuter.toBase58()}`);
 
@@ -43,18 +41,21 @@ it("creates the transmuter", async () => {
   );
   console.log("owner: ", owner?.toBase58());
 
-  const wba = new PublicKey("3LSY4UTEFt7V7eGsiaAUDzn3iKAJFBPkYseXpdECFknF");
-  console.log("wba: ", wba.toBase58());
+  const transmuterConfig = {
+    input_length: 2,
+    output_length: 2,
+    transmute_max: 1,
+  };
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(1))
+    .transmuterCreate(seed, JSON.stringify(transmuterConfig))
     .accounts({
       creator: creator.publicKey,
       auth,
       transmuter,
       systemProgram: SystemProgram.programId,
       owner,
-      wba,
+      wba: WBA,
     })
     .signers([creator])
     .rpc({
@@ -174,7 +175,7 @@ it("should add one output to the transmuter", async () => {
     collection: outputCollection.nft.address.toBase58(),
     method: "mint",
     amount: 1,
-    mint: {
+    mint_info: {
       title: "Generug split output",
       symbol: "SPLIT",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -199,7 +200,7 @@ it("should add one output to the transmuter", async () => {
     collection: outputCollection.nft.address.toBase58(),
     method: "mint",
     amount: 1,
-    mint: {
+    mint_info: {
       title: "Generug output",
       symbol: "NFT",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -216,4 +217,31 @@ it("should add one output to the transmuter", async () => {
     .rpc({
       skipPreflight: true,
     });
+});
+
+it("should resume the transmuter", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  await program.methods
+    .transmuterResume(seed)
+    .accounts({
+      creator: creator.publicKey,
+      transmuter: transmuter.publicKey,
+    })
+    .signers([creator])
+    .rpc({
+      skipPreflight: true,
+    });
+
+  const transmuterStruct = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.ok(!transmuterStruct.account.locked);
 });

@@ -16,6 +16,10 @@ pub enum TransmuterError {
     InvalidInputAccount,
     #[msg("Invalid user")]
     InvalidUser,
+    #[msg("Invalid index")]
+    InvalidIndex,
+    #[msg("Invalid amount")]
+    InvalidAmount,
     #[msg("Invalid resolve method provided for input")]
     InvalidResolveMethod,
     #[msg("Duplicate accounts provided for input")]
@@ -24,6 +28,12 @@ pub enum TransmuterError {
     InvalidNFTOwner,
     #[msg("Missing inputs provided to the transmuter")]
     MissingInputs,
+    #[msg("Transmuter has no inputs set")]
+    InputsNotSet,
+    #[msg("Transmuter has no outputs set")]
+    OutputsNotSet,
+    #[msg("Handled outputs not synced to transmuter outputs")]
+    HandledOutputsUnsynced,
     #[msg("Transmuter locked for user")]
     UserLocked,
     #[msg("Transmuter locked for creator")]
@@ -36,10 +46,16 @@ pub enum TransmuterError {
     IsIncomplete,
     #[msg("Transmutation complete")]
     IsComplete,
+    #[msg("Transmuter has not output to claim")]
+    IsNotClaimable,
+    #[msg("Invalid method")]
+    InvalidMethod,
     #[msg("First output was not claimed")]
     NotClaimed,
     #[msg("Failed the minting process")]
     MintFailed,
+    #[msg("Failed the transfer process")]
+    TransferFailed,
     #[msg("input length provided not matching input required")]
     InvalidProgramOwner,
     #[msg("Rule could not be applied on transmute")]

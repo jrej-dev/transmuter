@@ -9,8 +9,8 @@ pub struct Transmuter {
     pub transmuter_bump: u8,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
-    pub traits_uri: String,
-    pub transmute_max: u64,
+    pub traits_uri: Option<String>,
+    pub transmute_max: Option<u64>,
     pub transmute_count: u64,
 }
 

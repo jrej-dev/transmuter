@@ -1,19 +1,23 @@
-use crate::VaultAuth;
-use crate::{structs::Transmuter, TransmuterError};
+use std::str::FromStr;
+
+use crate::structs::Transmuter;
+use crate::{TransmuterError, VaultAuth};
 use anchor_lang::prelude::*;
-use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
+
+use mpl_token_metadata::instructions::{
+    CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
+    VerifyCreatorV1CpiBuilder,
+};
+use mpl_token_metadata::types::{Collection, Creator, DataV2};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
-pub struct UserCancelInput<'info> {
+pub struct UserClaimOutputSpl<'info> {
     #[account(mut, constraint = *creator.to_account_info().key == transmuter.creator)]
     pub creator: SystemAccount<'info>,
     #[account(mut, constraint = *user.to_account_info().key == vault_auth.user)]
     pub user: Signer<'info>,
-    #[account(mut)]
-    pub mint: Box<Account<'info, Mint>>,
-    #[account(mut)]
-    pub ata: Account<'info, TokenAccount>,
     #[account(
         mut,
         seeds = [b"transmuter", creator.key.as_ref(), seed.to_le_bytes().as_ref()],
@@ -21,39 +25,44 @@ pub struct UserCancelInput<'info> {
     )]
     pub transmuter: Box<Account<'info, Transmuter>>,
     #[account(
+        seeds = [b"auth", transmuter.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is not dangerous because this account doesn't exist
+    pub auth: UncheckedAccount<'info>,
+    #[account(
         mut,
         seeds = [b"vaultAuth", transmuter.key().as_ref(), user.key.as_ref(), vault_seed.to_le_bytes().as_ref()],
-        bump = vault_auth.vault_auth_bump,
+        bump,
     )]
     pub vault_auth: Box<Account<'info, VaultAuth>>,
     #[account(mut)]
-    pub vault: Account<'info, TokenAccount>,
+    pub auth_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub user_ata: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> UserCancelInput<'info> {
-    pub fn transfer_from_vault(&self, vault_seed: u64) -> Result<()> {
-        let vault_seed_bytes = vault_seed.to_le_bytes();
+impl<'info> UserClaimOutputSpl<'info> {
+    pub fn transfer_from_auth(&self, &amount: &u64) -> Result<()> {
         let seeds = &[
-            b"vaultAuth",
+            b"auth",
             self.transmuter.to_account_info().key.as_ref(),
-            self.user.to_account_info().key.as_ref(),
-            &vault_seed_bytes.as_ref(),
-            &[self.vault_auth.vault_auth_bump],
+            &[self.transmuter.auth_bump],
         ];
         let signer_seeds = &[&seeds[..]];
 
         let cpi_accounts = Transfer {
-            from: self.vault.to_account_info(),
-            to: self.ata.to_account_info(),
-            authority: self.vault_auth.to_account_info(),
+            from: self.auth_ata.to_account_info(),
+            to: self.user_ata.to_account_info(),
+            authority: self.auth.to_account_info(),
         };
 
         let cpi_program = self.token_program.to_account_info();
 
         transfer(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-            1,
+            amount,
         )
     }
 }

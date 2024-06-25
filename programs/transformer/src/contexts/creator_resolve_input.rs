@@ -1,7 +1,7 @@
-use crate::structs::Transmuter;
 use crate::VaultAuth;
+use crate::{structs::Transmuter, TransmuterError};
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount, transfer, Transfer};
+use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 #[instruction(seed: u64, vault_seed: u64)]
@@ -29,7 +29,6 @@ pub struct CreatorResolveInput<'info> {
     #[account(mut)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
 }
 
 impl<'info> CreatorResolveInput<'info> {
@@ -55,8 +54,6 @@ impl<'info> CreatorResolveInput<'info> {
         transfer(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
             1,
-        )?;
-
-        Ok(())
+        )
     }
 }

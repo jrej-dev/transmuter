@@ -62,12 +62,10 @@ it("resolves all inputs", async () => {
                   creator: creator.publicKey,
                   user: user.publicKey,
                   mint: vaultAuthNft.mintAddress,
-                  metadata: metadata,
                   vaultAuth: vaultAuth.publicKey,
                   vault: vault.address,
                   tokenProgram,
                   transmuter: transmuter.publicKey,
-                  systemProgram: SystemProgram.programId,
                 })
                 .signers([creator])
                 .rpc({
@@ -99,7 +97,6 @@ it("resolves all inputs", async () => {
                   vault: vault.address,
                   tokenProgram,
                   transmuter: transmuter.publicKey,
-                  systemProgram: SystemProgram.programId,
                 })
                 .signers([creator])
                 .rpc({

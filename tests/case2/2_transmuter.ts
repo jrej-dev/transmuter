@@ -78,8 +78,14 @@ it("creates a transformer as a holder", async () => {
   assert.notEqual(metadata, undefined, "Metadata not found");
   assert.notEqual(ata, undefined, "Ata not found");
 
+  const transmuterConfig = {
+    input_length: 1,
+    output_length: 8,
+    traits_uri: traitsUri,
+  };
+
   await program.methods
-    .transmuterCreateHolder(seed, new BN(1), new BN(8), traitsUri, new BN(0))
+    .transmuterCreateHolder(seed, JSON.stringify(transmuterConfig))
     .accounts({
       creator: creator.publicKey,
       auth,
@@ -106,7 +112,7 @@ it("checks the transmuter max and count", async () => {
     seed
   );
 
-  assert.equal(transmuter.account.transmuteMax, 0);
+  assert.equal(transmuter.account.transmuteMax, null);
   assert.equal(transmuter.account.transmuteCount, 0);
 });
 
@@ -165,7 +171,7 @@ it("should add the dog output to the transmuter", async () => {
         [await getTraitId(traitsUri, "Dog Color"), "*"],
       ],
     },
-    mint: {
+    mint_info: {
       title: "Dog pilot",
       symbol: "DPLT",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -210,7 +216,7 @@ it("should add titan parts output to the transmuter", async () => {
           [titanPartString, "*"],
         ],
       },
-      mint: {
+      mint_info: {
         title: "Titan part",
         symbol: "TPRT",
         uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -244,7 +250,7 @@ it("should add the color output to the transmuter", async () => {
         [await getTraitId(traitsUri, "Pattern"), "*"],
       ],
     },
-    mint: {
+    mint_info: {
       title: "Titan color",
       symbol: "TCLR",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -284,3 +290,30 @@ export const getValueId = async (
   );
   return transmuterTrait.value_id;
 };
+
+it("should resume the transmuter", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  await program.methods
+    .transmuterResume(seed)
+    .accounts({
+      creator: creator.publicKey,
+      transmuter: transmuter.publicKey,
+    })
+    .signers([creator])
+    .rpc({
+      skipPreflight: true,
+    });
+
+  const transmuterStruct = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.ok(!transmuterStruct.account.locked);
+});

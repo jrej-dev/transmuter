@@ -13,3 +13,11 @@ where
 
     Ok(result)
 }
+
+pub fn parse_json<'a, T>(json_vec: &'a String) -> Result<T, Error>
+where
+    T: Deserialize<'a>,
+{
+    let result = serde_json::from_str::<T>(&json_vec).unwrap();
+    Ok(result)
+}

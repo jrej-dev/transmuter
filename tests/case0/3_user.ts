@@ -248,7 +248,6 @@ it("should fail to send input", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc({
@@ -335,7 +334,6 @@ it("should send input", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -391,7 +389,6 @@ it("should cancel inputs", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc({
@@ -458,7 +455,7 @@ it("should fail to claim output", async () => {
     const masterEdition = await getMasterEdition(mint);
 
     await program.methods
-      .userClaimOutput(seed, vaultSeed)
+      .userClaimOutputNft(seed, vaultSeed)
       .accounts({
         creator: creator.publicKey,
         user: user.publicKey,
@@ -535,7 +532,6 @@ it("should send input again", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -609,7 +605,7 @@ it("should fail to claim output", async () => {
     const masterEdition = await getMasterEdition(mint);
 
     await program.methods
-      .userClaimOutput(seed, vaultSeed)
+      .userClaimOutputNft(seed, vaultSeed)
       .accounts({
         creator: creator.publicKey,
         user: user.publicKey,
@@ -747,7 +743,6 @@ it("should send another input in another vault", async () => {
       vault: vault.address,
       tokenProgram,
       transmuter: transmuter.publicKey,
-      systemProgram: SystemProgram.programId,
     })
     .signers([user])
     .rpc({
@@ -792,7 +787,7 @@ it("should claim output", async () => {
   const masterEdition = await getMasterEdition(mint);
 
   await program.methods
-    .userClaimOutput(seed, vaultSeed)
+    .userClaimOutputNft(seed, vaultSeed)
     .accounts({
       creator: creator.publicKey,
       user: user.publicKey,
@@ -856,7 +851,7 @@ it("should fail to claim output from vault 2 as max reached", async () => {
     const masterEdition = await getMasterEdition(mint);
 
     await program.methods
-      .userClaimOutput(seed, vaultSeed2)
+      .userClaimOutputNft(seed, vaultSeed2)
       .accounts({
         creator: creator.publicKey,
         user: user.publicKey,
@@ -935,7 +930,6 @@ it("should cancel inputs", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc({

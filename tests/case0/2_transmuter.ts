@@ -4,6 +4,7 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { randomBytes } from "crypto";
 import assert from "assert";
 import {
+  WBA,
   getMetadata,
   getProgramAuthority,
   getTransmuterStruct,
@@ -44,9 +45,6 @@ export const auth = PublicKey.findProgramAddressSync(
   program.programId
 )[0];
 
-const traitsUri =
-  "https://bafkreiaum2ncnoacx6la6o4anebrvgqgsoqymk62md5vw5mbbt2jvhfzfe.ipfs.nftstorage.link";
-
 console.log(`auth: ${auth.toBase58()}`);
 console.log(`transmuter: ${transmuter.toBase58()}`);
 
@@ -57,18 +55,20 @@ it("creates the transmuter", async () => {
   );
   console.log("owner: ", owner?.toBase58());
 
-  const wba = new PublicKey("3LSY4UTEFt7V7eGsiaAUDzn3iKAJFBPkYseXpdECFknF");
-  console.log("wba: ", wba.toBase58());
+  const transmuterConfig = {
+    input_length: 2,
+    output_length: 2,
+  };
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(0))
+    .transmuterCreate(seed, JSON.stringify(transmuterConfig))
     .accounts({
       creator: creator.publicKey,
       auth,
       transmuter,
       systemProgram: SystemProgram.programId,
       owner,
-      wba,
+      wba: WBA,
     })
     .signers([creator])
     .rpc({
@@ -88,7 +88,37 @@ it("checks the transmuter max and count", async () => {
     seed
   );
 
-  assert.equal(transmuter.account.transmuteMax, 0);
+  assert.equal(transmuter.account.transmuteMax, null);
+  assert.equal(transmuter.account.transmuteCount, 0);
+});
+
+it("updates the transmuter max transmute", async () => {
+  const transmuterConfig = {
+    input_length: 2,
+    output_length: 2,
+    transmute_max: 1,
+  };
+
+  await program.methods
+    .transmuterSet(seed, JSON.stringify(transmuterConfig))
+    .accounts({
+      creator: creator.publicKey,
+      transmuter,
+    })
+    .signers([creator])
+    .rpc({
+      skipPreflight: true,
+    });
+});
+
+it("checks the transmuter max and count", async () => {
+  const transmuter = await getTransmuterStruct(
+    program,
+    creator.publicKey,
+    seed
+  );
+
+  assert.equal(transmuter.account.transmuteMax, 1);
   assert.equal(transmuter.account.transmuteCount, 0);
 });
 
@@ -139,7 +169,7 @@ it("should add one output to the transmuter", async () => {
     collection: outputCollection.nft.address.toBase58(),
     method: "mint",
     amount: 1,
-    mint: {
+    mint_info: {
       title: "Generug output",
       symbol: "GNRG",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
@@ -229,7 +259,6 @@ it("should fail to handle input", async () => {
         vault: vault.address,
         tokenProgram,
         transmuter: transmuter.publicKey,
-        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc({
@@ -249,18 +278,21 @@ it("creates a new transmuter", async () => {
   );
   console.log("owner: ", owner?.toBase58());
 
-  const wba = new PublicKey("3LSY4UTEFt7V7eGsiaAUDzn3iKAJFBPkYseXpdECFknF");
-  console.log("wba: ", wba.toBase58());
+  const transmuterConfig = {
+    input_length: 2,
+    output_length: 2,
+    transmute_max: 1,
+  };
 
   await program.methods
-    .transmuterCreate(seed, new BN(2), new BN(2), traitsUri, new BN(1))
+    .transmuterCreate(seed, JSON.stringify(transmuterConfig))
     .accounts({
       creator: creator.publicKey,
       auth,
       transmuter,
       systemProgram: SystemProgram.programId,
       owner,
-      wba,
+      wba: WBA,
     })
     .signers([creator])
     .rpc({
@@ -335,7 +367,7 @@ it("should add one output to the transmuter", async () => {
     collection: outputCollection.nft.address.toBase58(),
     method: "mint",
     amount: 1,
-    mint: {
+    mint_info: {
       title: "Generug output",
       symbol: "GNRG",
       uri: "https://arweave.net/qF9H_BBdjf-ZIR90_z5xXsSx8WiPB3-pHA8QTlg1oeI",
