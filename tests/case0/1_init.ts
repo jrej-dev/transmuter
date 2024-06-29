@@ -1,5 +1,4 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Transformer, IDL } from "../../target/types/transformer";
 import { Keypair } from "@solana/web3.js";
 import {
   CreateCompressedNftOutput,
@@ -7,7 +6,6 @@ import {
   keypairIdentity,
   mockStorage,
 } from "@metaplex-foundation/js";
-import { NFTStorage } from "nft.storage";
 import { confirmTxs } from "../utils";
 
 require("dotenv").config({ path: ".env" });

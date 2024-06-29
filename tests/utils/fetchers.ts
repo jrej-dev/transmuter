@@ -1,5 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Transformer } from "../../target/types/transformer";
+import { Transmuter } from "../../target/types/transmuter";
 import { PublicKey, Connection } from "@solana/web3.js";
 
 const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
@@ -12,7 +12,7 @@ const numbertoBase58 = (number: anchor.BN) => {
 
 // Structs
 export const getTransmuterStruct = async (
-  program: anchor.Program<Transformer>,
+  program: anchor.Program<Transmuter>,
   creatorAddress: PublicKey,
   seed: anchor.BN
 ) => {
@@ -34,7 +34,7 @@ export const getTransmuterStruct = async (
 };
 
 export const getTransmuterStructs = async (
-  program: anchor.Program<Transformer>,
+  program: anchor.Program<Transmuter>,
   creatorAddress: PublicKey
 ) => {
   return program.account.transmuter.all([
@@ -48,7 +48,7 @@ export const getTransmuterStructs = async (
 };
 
 export const getvaultAuthStruct = async (
-  program: anchor.Program<Transformer>,
+  program: anchor.Program<Transmuter>,
   transmuterAddress: PublicKey,
   userAddress: PublicKey,
   vaultSeed: anchor.BN
@@ -82,7 +82,7 @@ export const getvaultAuthStruct = async (
 };
 
 export const getvaultAuthStructs = async (
-  program: anchor.Program<Transformer>,
+  program: anchor.Program<Transmuter>,
   transmuterAddress: PublicKey,
   creatorLock: boolean
 ) => {

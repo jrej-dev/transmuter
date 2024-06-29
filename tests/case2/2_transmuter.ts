@@ -45,7 +45,7 @@ const traitsUri =
 console.log(`auth: ${auth.toBase58()}`);
 console.log(`transmuter2: ${transmuter.toBase58()}`);
 
-it("creates a transformer as a holder", async () => {
+it("creates a transmuter as a holder", async () => {
   const creatorNfts = await userMetaplex
     .nfts()
     .findAllByOwner({ owner: creator.publicKey });

@@ -2400,7 +2400,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "transformer"
+name = "transmuter"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",

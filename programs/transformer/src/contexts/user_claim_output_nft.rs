@@ -9,8 +9,8 @@ use anchor_spl::{
 };
 
 use mpl_token_metadata::instructions::{
-    CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder, UpdateV1CpiBuilder,
-    VerifyCreatorV1CpiBuilder,
+    CreateMasterEditionV3CpiBuilder, CreateMetadataAccountV3CpiBuilder,
+    SetAndVerifyCollectionCpiBuilder, UpdateV1CpiBuilder, VerifyCreatorV1CpiBuilder,
 };
 use mpl_token_metadata::types::{Collection, Creator, DataV2};
 
@@ -197,4 +197,25 @@ impl<'info> UserClaimOutputNft<'info> {
 
         Ok(result?)
     }
+
+    // pub fn set_collection(&self, collection_string: &Option<String>) -> Result<()> {
+    //     let collection_mint = Pubkey::from_str(collection_string).unwrap();
+
+    //     let seeds = &[
+    //         &b"auth"[..],
+    //         &self.transmuter.key().to_bytes()[..],
+    //         &[self.transmuter.auth_bump],
+    //     ];
+    //     let signer_seeds = &[&seeds[..]];
+
+    //     let result = SetAndVerifyCollectionCpiBuilder::new(&self.token_program.to_account_info())
+    //         .metadata(&self.metadata.to_account_info())
+    //         .collection_authority(self.creator.key())
+    //         .payer(&self.user.to_account_info())
+    //         .update_authority(self.creator.key())
+    //         .collection_mint()
+    //         .invoke_signed(signer_seeds);
+
+    //     Ok(result?)
+    // }
 }

@@ -40,8 +40,6 @@ it("resolves all inputs", async () => {
         true
       );
 
-      const metadata = await getMetadata(vaultAuthNft.mintAddress);
-
       const inputInfoIndex = vaultAuth.account.handledInputs.findIndex(
         (inputAddress) =>
           inputAddress?.toBase58() === vaultAuthNft.mintAddress.toBase58()

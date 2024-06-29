@@ -2,7 +2,7 @@
 seeds = false
 skip-lint = false
 [programs.localnet]
-transformer = "H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf"
+transmuter = "E92y64UApEZnqJRsxrxRK6Jmp6nCD4hu59kqqegqNNN4"
 
 [registry]
 url = "https://api.apr.dev"

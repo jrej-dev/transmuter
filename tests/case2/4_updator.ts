@@ -11,6 +11,32 @@ const storageClient = new NFTStorage({
   token: process.env.NFT_STORAGE_KEY,
 });
 
+it("verifies collection", async () => {
+  const transmuters = await getTransmuterStructs(program, creator.publicKey);
+
+  for (let transmuter of transmuters) {
+    const auth = PublicKey.findProgramAddressSync(
+      [Buffer.from("auth"), transmuter.publicKey.toBytes()],
+      program.programId
+    )[0];
+
+    const metadatas = (await creatorMetaplex
+      .nfts()
+      .findAllByCreator({ creator: auth })) as Metadata[];
+
+    const metadatasToUpdate = metadatas.filter(
+      (metadata) => !metadata.collection.verified
+    );
+
+    for (let metadata of metadatasToUpdate) {
+      await creatorMetaplex.nfts().verifyCollection({
+        mintAddress: metadata.mintAddress,
+        collectionMintAddress: metadata.collection.address,
+      });
+    }
+  }
+});
+
 it("Updates output uri", async () => {
   // find all nfts that are not updated
   // first get all the transmuters of this creator
@@ -41,7 +67,7 @@ it("Updates output uri", async () => {
         const nftUrl = new URL(metadata.uri);
         const nftBaseUri = nftUrl.origin + nftUrl.pathname;
         return transmuterOutputs.some(
-          (output) => output.mint?.uri === nftBaseUri
+          (output) => output.mint_info?.uri === nftBaseUri
         );
       });
 

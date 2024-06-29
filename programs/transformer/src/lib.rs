@@ -22,10 +22,10 @@ use methods::*;
 
 // use spl_token::solana_program::program::invoke_signed;
 
-declare_id!("H8SJKV7T4egtcwoA2HqSCNYeqrTJuA7SDSeZNrAgMmpf");
+declare_id!("E92y64UApEZnqJRsxrxRK6Jmp6nCD4hu59kqqegqNNN4");
 
 #[program]
-pub mod transformer {
+pub mod transmuter {
     use super::*;
 
     // Transmuter methods

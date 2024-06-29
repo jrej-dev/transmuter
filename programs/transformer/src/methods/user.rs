@@ -21,16 +21,17 @@ pub fn user_mint_split(ctx: &Context<UserClaimOutputNft>, output_info: &OutputIn
 
     //mint as much as input traits (max output)
     let result = &ctx.accounts.mint_token();
-    &ctx.accounts.create_metadata(
+    let _ = &ctx.accounts.create_metadata(
         &mint_info.title,
         &mint_info.symbol,
         &mint_uri,
         &output_info.collection,
         500,
     );
-    &ctx.accounts.create_master_edition();
-    &ctx.accounts.update_authority();
-
+    let _ = &ctx.accounts.create_master_edition();
+    let _ = &ctx.accounts.update_authority();
+    //SET COLLECTION
+    
     match result {
         Ok(res) => res,
         Err(_e) => panic!("{}", TransmuterError::MintFailed),
@@ -54,15 +55,15 @@ pub fn user_mint_merge(ctx: &Context<UserClaimOutputNft>, output_info: &OutputIn
     let uri = uri_from_traits(&mint_info.uri, trait_values);
 
     let result = &ctx.accounts.mint_token();
-    &ctx.accounts.create_metadata(
+    let _ = &ctx.accounts.create_metadata(
         &mint_info.title,
         &mint_info.symbol,
         &uri,
         &output_info.collection,
         500,
     );
-    &ctx.accounts.create_master_edition();
-    &ctx.accounts.update_authority();
+    let _ = &ctx.accounts.create_master_edition();
+    let _ = &ctx.accounts.update_authority();
 
     match result {
         Ok(res) => res,
