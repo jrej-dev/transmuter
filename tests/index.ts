@@ -1,6 +1,6 @@
 // import "./case1";
 import * as anchor from "@coral-xyz/anchor";
-import { transmuter, IDL } from "../target/types/transmuter";
+import { IDL, Transmuter } from "../target/types/transmuter";
 
 anchor.setProvider(anchor.AnchorProvider.env());
 
@@ -15,6 +15,6 @@ export const program = new anchor.Program<Transmuter>(
 );
 
 import "./case0";
-// import "./case1";
-// import "./case2";
-// import './case3';
+import "./case1";
+import "./case2";
+import "./case3";
